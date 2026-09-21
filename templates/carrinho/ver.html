@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Carrinho | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <div class="mb-4"><p class="text-success fw-semibold mb-1">Sua selecao</p><h1 class="h2 mb-1">Carrinho de compras</h1><p class="text-muted mb-0">Revise as quantidades antes de finalizar o pedido.</p></div>
+    {% if itens %}
+        <div class="row g-4 align-items-start">
+            <div class="col-lg-8">
+                {% for item in itens %}
+                    <article class="card border-0 shadow-sm mb-3"><div class="card-body p-3 p-md-4"><div class="row align-items-center g-3">
+                        <div class="col-3 col-md-2"><div class="ratio ratio-1x1 rounded bg-success-subtle d-flex align-items-center justify-content-center overflow-hidden">{% if item.produto.imagem %}<img src="{{ item.produto.imagem.url }}" class="w-100 h-100 object-fit-cover" alt="{{ item.produto.nome }}">{% else %}<i class="fa-solid fa-seedling text-success"></i>{% endif %}</div></div>
+                        <div class="col-9 col-md-4"><h2 class="h6 mb-1">{{ item.produto.nome }}</h2><p class="small text-muted mb-0">{{ item.produto.fornecedor.empresa }}</p><p class="small text-muted mb-0">R$ {{ item.produto.preco }} / {{ item.produto.unidade_medida }}</p></div>
+                        <div class="col-7 col-md-3"><form method="post" action="{% url 'carrinho:atualizar' item.pk %}" class="d-flex gap-2 align-items-end">{% csrf_token %}<div><label class="form-label small mb-1" for="qtd-{{ item.pk }}">Quantidade</label><input class="form-control form-control-sm" id="qtd-{{ item.pk }}" name="quantidade" type="number" min="1" max="{{ item.produto.estoque }}" value="{{ item.quantidade }}" required></div><button class="btn btn-sm btn-outline-success" type="submit" aria-label="Atualizar quantidade"><i class="fa-solid fa-rotate"></i></button></form></div>
+                        <div class="col-5 col-md-3 text-end"><strong class="text-success">R$ {{ item.subtotal }}</strong><form method="post" action="{% url 'carrinho:remover' item.pk %}" class="mt-2">{% csrf_token %}<button class="btn btn-link btn-sm text-danger p-0" type="submit"><i class="fa-solid fa-trash me-1"></i>Remover</button></form></div>
+                    </div></div></article>
+                {% endfor %}
+            </div>
+            <div class="col-lg-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><h2 class="h5">Resumo</h2><div class="d-flex justify-content-between border-top pt-3 mt-3"><span>Total</span><strong class="h4 text-success mb-0">R$ {{ carrinho.total }}</strong></div><form method="post" action="{% url 'pedidos:finalizar' %}">{% csrf_token %}<button class="btn btn-agro w-100 mt-4" type="submit"><i class="fa-solid fa-check me-2"></i>Finalizar pedido</button></form></div></div></div>
+        </div>
+    {% else %}<div class="card border-0 shadow-sm"><div class="card-body text-center py-5"><i class="fa-solid fa-cart-shopping text-success fs-1 mb-3"></i><h2 class="h4">Seu carrinho esta vazio</h2><p class="text-muted">Explore o catalogo e encontre produtos para sua producao.</p><a class="btn btn-agro" href="{% url 'produtos:catalogo' %}"><i class="fa-solid fa-boxes-stacked me-2"></i>Ver produtos</a></div></div>{% endif %}
+</section>
+{% endblock %}

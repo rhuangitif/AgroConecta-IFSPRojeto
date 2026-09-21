@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}{{ produto.nome }} | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <a class="text-decoration-none" href="{% url 'produtos:catalogo' %}"><i class="fa-solid fa-arrow-left me-2"></i>Voltar para produtos</a>
+    <div class="row g-5 align-items-center mt-2">
+        <div class="col-lg-6">
+            <div class="ratio ratio-4x3 rounded-4 bg-success-subtle d-flex align-items-center justify-content-center overflow-hidden">
+                {% if produto.imagem %}<img src="{{ produto.imagem.url }}" class="w-100 h-100 object-fit-cover" alt="{{ produto.nome }}">{% else %}<i class="fa-solid fa-seedling text-success" style="font-size: 5rem;"></i>{% endif %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <span class="badge text-bg-light border mb-3">{{ produto.categoria.nome }}</span>
+            <h1 class="display-5 fw-bold">{{ produto.nome }}</h1>
+            <p class="text-muted"><i class="fa-solid fa-store me-2"></i>{{ produto.fornecedor.empresa }}</p>
+            <p class="lead">{{ produto.descricao }}</p>
+            <div class="border-top border-bottom py-3 my-4"><span class="display-6 text-success">R$ {{ produto.preco }}</span><span class="text-muted"> por {{ produto.unidade_medida }}</span></div>
+            <p class="mb-4"><strong>Estoque:</strong> {% if produto.estoque > 0 %}{{ produto.estoque }} disponivel(is){% else %}Esgotado{% endif %}</p>
+            {% if produto.estoque > 0 %}
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'carrinho:adicionar' produto.pk %}" class="d-flex gap-2 align-items-end">
+                        {% csrf_token %}
+                        <div><label class="form-label small" for="quantidade">Quantidade</label><input class="form-control" id="quantidade" name="quantidade" type="number" min="1" max="{{ produto.estoque }}" value="1" required></div>
+                        <button class="btn btn-agro btn-lg" type="submit"><i class="fa-solid fa-cart-plus me-2"></i>Adicionar</button>
+                    </form>
+                {% else %}
+                    <a class="btn btn-agro btn-lg" href="{% url 'contas:login' %}?next={{ request.path }}"><i class="fa-solid fa-right-to-bracket me-2"></i>Entre para comprar</a>
+                {% endif %}
+            {% else %}<button class="btn btn-secondary btn-lg" type="button" disabled>Esgotado</button>{% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

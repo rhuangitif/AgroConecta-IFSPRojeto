@@ -1,0 +1,10 @@
+from django.contrib import admin
+
+from .models import Vendedor
+
+
+@admin.register(Vendedor)
+class VendedorAdmin(admin.ModelAdmin):
+	list_display = ('empresa', 'cnpj', 'cidade', 'estado', 'ativo', 'data_cadastro')
+	search_fields = ('empresa', 'cnpj', 'email')
+	list_filter = ('ativo', 'estado')

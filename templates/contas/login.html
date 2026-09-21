@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Entrar | AgroConecta{% endblock %}
+{% block content %}
+<section class="auth-shell">
+    <div class="card auth-card">
+        <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+                <i class="fa-solid fa-leaf text-success fs-1"></i>
+                <h1 class="h3 mt-3">Bem-vindo de volta</h1>
+                <p class="text-muted mb-0">Entre para acessar sua conta AgroConecta.</p>
+            </div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% for field in form %}
+                    <div class="mb-3">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                <button class="btn btn-agro w-100" type="submit"><i class="fa-solid fa-right-to-bracket me-2"></i>Entrar</button>
+            </form>
+            <p class="text-center text-muted mt-4 mb-0">Ainda nao possui conta? <a href="{% url 'contas:cadastro' %}">Cadastre-se</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

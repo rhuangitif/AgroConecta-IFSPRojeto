@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Produtos | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <p class="text-success fw-semibold mb-1">Marketplace agricola</p>
+            <h1 class="display-6 fw-bold mb-1">Encontre insumos para sua producao</h1>
+            <p class="text-muted mb-0">Compare produtos de fornecedores cadastrados.</p>
+        </div>
+        <span class="badge rounded-pill text-bg-light border">{{ produtos|length }} produto(s)</span>
+    </div>
+    <div class="card catalog-filter border-0 shadow-sm mb-4">
+        <div class="card-body p-3 p-lg-4">
+            <form method="get">
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-4">{{ form.busca.label_tag }}{{ form.busca }}</div>
+                    <div class="col-md-4 col-lg-2">{{ form.categoria.label_tag }}{{ form.categoria }}</div>
+                    <div class="col-md-4 col-lg-2">{{ form.fornecedor.label_tag }}{{ form.fornecedor }}</div>
+                    <div class="col-md-4 col-lg-2">{{ form.ordem.label_tag }}{{ form.ordem }}</div>
+                    <div class="col-lg-2 d-grid"><button class="btn btn-agro" type="submit"><i class="fa-solid fa-filter me-2"></i>Filtrar</button></div>
+                    <div class="col-md-6 col-lg-2">{{ form.preco_min.label_tag }}{{ form.preco_min }}</div>
+                    <div class="col-md-6 col-lg-2">{{ form.preco_max.label_tag }}{{ form.preco_max }}</div>
+                    <div class="col-md-6 col-lg-3">{{ form.disponibilidade.label_tag }}{{ form.disponibilidade }}</div>
+                    <div class="col-md-6 col-lg-3"><a class="btn btn-outline-secondary w-100" href="{% url 'produtos:catalogo' %}"><i class="fa-solid fa-rotate-left me-2"></i>Limpar filtros</a></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row g-4">
+        {% for produto in produtos %}
+            <div class="col-sm-6 col-xl-4">
+                <article class="card product-card h-100 border-0 shadow-sm">
+                    <div class="ratio ratio-16x9 bg-success-subtle rounded-top overflow-hidden d-flex align-items-center justify-content-center">
+                        {% if produto.imagem %}<img src="{{ produto.imagem.url }}" class="w-100 h-100 object-fit-cover" alt="{{ produto.nome }}">{% else %}<i class="fa-solid fa-seedling text-success fs-1"></i>{% endif %}
+                    </div>
+                    <div class="card-body d-flex flex-column p-4">
+                        <div class="d-flex justify-content-between gap-2 mb-2"><span class="badge text-bg-light border">{{ produto.categoria.nome }}</span>{% if produto.estoque > 0 %}<span class="badge text-bg-success">Disponivel</span>{% else %}<span class="badge text-bg-secondary">Esgotado</span>{% endif %}</div>
+                        <h2 class="h5">{{ produto.nome }}</h2>
+                        <p class="text-muted small mb-2"><i class="fa-solid fa-store me-1"></i>{{ produto.fornecedor.empresa }}</p>
+                        <p class="text-muted small flex-grow-1">{{ produto.descricao|truncatewords:18 }}</p>
+                        <div class="d-flex justify-content-between align-items-end gap-3"><div><span class="h4 text-success mb-0">R$ {{ produto.preco }}</span><small class="d-block text-muted">por {{ produto.unidade_medida }} &middot; {{ produto.estoque }} em estoque</small></div><a class="btn btn-outline-success" href="{% url 'produtos:detalhe' produto.pk %}" aria-label="Ver detalhes de {{ produto.nome }}"><i class="fa-solid fa-arrow-right"></i></a></div>
+                    </div>
+                </article>
+            </div>
+        {% empty %}
+            <div class="col-12"><div class="alert alert-info border-0"><i class="fa-solid fa-circle-info me-2"></i>Nenhum produto encontrado com estes filtros.</div></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

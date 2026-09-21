@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Editar perfil | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-xl-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    <div class="mb-4">
+                        <a class="text-decoration-none" href="{% url 'contas:perfil' %}"><i class="fa-solid fa-arrow-left me-2"></i>Voltar ao perfil</a>
+                        <h1 class="h3 mt-3">Editar perfil</h1>
+                    </div>
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        <h2 class="h5 mb-3">Dados de acesso</h2>
+                        <div class="row g-3 mb-4">
+                            {% for field in user_form %}
+                                <div class="col-md-6">
+                                    {{ field.label_tag }}{{ field }}
+                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <h2 class="h5 mb-3">Dados pessoais</h2>
+                        <div class="row g-3 mb-4">
+                            {% for field in perfil_form %}
+                                <div class="col-md-6">
+                                    {{ field.label_tag }}{{ field }}
+                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if vendedor_form %}
+                            <h2 class="h5 mb-3">Dados da empresa</h2>
+                            <div class="row g-3 mb-4">
+                                {% for field in vendedor_form %}
+                                    <div class="col-md-6">
+                                        {{ field.label_tag }}{{ field }}
+                                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <button class="btn btn-agro" type="submit"><i class="fa-solid fa-floppy-disk me-2"></i>Salvar alteracoes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Cadastro | AgroConecta{% endblock %}
+{% block content %}
+<section class="auth-shell">
+    <div class="card auth-card">
+        <div class="card-body p-4 p-md-5">
+            <div class="mb-4">
+                <span class="badge text-bg-success mb-2">Comece agora</span>
+                <h1 class="h3">Crie sua conta</h1>
+                <p class="text-muted mb-0">Conecte-se a fornecedores e produtos agrícolas.</p>
+            </div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="row g-3">
+                    {% for field in form %}
+                        <div class="col-12 {% if field.name == 'first_name' or field.name == 'tipo' or field.name == 'estado' %}col-md-6{% endif %} cadastro-field cadastro-{{ field.name }}">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <button class="btn btn-agro w-100 mt-4" type="submit"><i class="fa-solid fa-user-plus me-2"></i>Criar conta</button>
+            </form>
+            <p class="text-center text-muted mt-4 mb-0">Ja possui uma conta? <a href="{% url 'contas:login' %}">Entrar</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+    const tipo = document.getElementById('id_tipo');
+    const fornecedorFields = document.querySelectorAll('.cadastro-empresa, .cadastro-cnpj, .cadastro-endereco, .cadastro-descricao');
+    function alternarCamposFornecedor() {
+        const fornecedor = tipo && tipo.value === 'fornecedor';
+        fornecedorFields.forEach((field) => {
+            field.classList.toggle('d-none', !fornecedor);
+            field.querySelector('input, textarea')?.toggleAttribute('required', fornecedor && field.classList.contains('cadastro-empresa'));
+        });
+    }
+    tipo?.addEventListener('change', alternarCamposFornecedor);
+    alternarCamposFornecedor();
+</script>
+{% endblock %}

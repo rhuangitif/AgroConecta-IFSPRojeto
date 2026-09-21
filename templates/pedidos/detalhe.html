@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}Pedido #{{ pedido.pk }} | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5"><div class="d-flex flex-wrap justify-content-between gap-3 align-items-start mb-4"><div><a class="text-decoration-none" href="{% url 'pedidos:lista' %}"><i class="fa-solid fa-arrow-left me-2"></i>Voltar aos pedidos</a><h1 class="h2 mt-3 mb-1">Pedido #{{ pedido.pk }}</h1><p class="text-muted mb-0">Realizado em {{ pedido.data|date:'d/m/Y H:i' }}</p></div><span class="badge text-bg-success fs-6">{{ pedido.get_status_display }}</span></div>
+    <div class="row g-4"><div class="col-lg-8">{% for item in pedido.itens.all %}<article class="card border-0 shadow-sm mb-3"><div class="card-body p-4 d-flex justify-content-between gap-3"><div><h2 class="h6 mb-1">{{ item.produto.nome }}</h2><p class="small text-muted mb-0">Fornecedor: {{ item.produto.fornecedor.empresa }}</p><p class="small text-muted mb-0">{{ item.quantidade }} x R$ {{ item.preco_unitario }}</p></div><strong class="text-success">R$ {{ item.subtotal }}</strong></div></article>{% endfor %}</div><div class="col-lg-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><h2 class="h5">Resumo do pedido</h2><div class="d-flex justify-content-between border-top pt-3 mt-3"><span>Total</span><strong class="h4 text-success mb-0">R$ {{ pedido.valor_total }}</strong></div></div></div></div></div>
+</section>
+{% endblock %}
