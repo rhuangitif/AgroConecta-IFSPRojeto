@@ -8,7 +8,7 @@ from contas.models import Perfil
 from produtos.models import Categoria, Produto
 from vendedores.models import Vendedor
 
-from .models import Pedido
+from .models import Pedido, PedidoFornecedor
 
 User = get_user_model()
 
@@ -20,7 +20,11 @@ class PedidoTests(TestCase):
 			password='Senha#2026',
 		)
 		Perfil.objects.create(usuario=self.usuario, tipo=Perfil.Tipo.AGRICULTOR)
-		fornecedor_user = User.objects.create_user(username='fornecedor@teste.local')
+		fornecedor_user = User.objects.create_user(
+			username='fornecedor@teste.local',
+			password='Senha#2026',
+		)
+		Perfil.objects.create(usuario=fornecedor_user, tipo=Perfil.Tipo.FORNECEDOR)
 		fornecedor = Vendedor.objects.create(
 			usuario=fornecedor_user,
 			empresa='Fornecedor',
@@ -31,6 +35,7 @@ class PedidoTests(TestCase):
 			cidade='Maceio',
 			estado='AL',
 		)
+		self.fornecedor = fornecedor
 		categoria = Categoria.objects.create(nome='Ferramentas', slug='ferramentas')
 		self.produto = Produto.objects.create(
 			nome='Enxada',
@@ -58,8 +63,88 @@ class PedidoTests(TestCase):
 		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
 		self.assertEqual(pedido.valor_total, 50)
 		self.assertEqual(pedido.itens.get().preco_unitario, 25)
+		self.assertEqual(pedido.fornecedores.count(), 1)
+		self.assertEqual(pedido.fornecedores.get().itens.count(), 1)
 		self.assertEqual(self.produto.estoque, 3)
 		self.assertEqual(Carrinho.objects.get(usuario=self.usuario).itens.count(), 0)
+
+	def test_checkout_separa_itens_e_status_por_fornecedor(self):
+		outro_fornecedor_user = User.objects.create_user(
+			username='outro-fornecedor@teste.local',
+			password='Senha#2026',
+		)
+		Perfil.objects.create(
+			usuario=outro_fornecedor_user,
+			tipo=Perfil.Tipo.FORNECEDOR,
+		)
+		outro_fornecedor = Vendedor.objects.create(
+			usuario=outro_fornecedor_user,
+			empresa='Outro fornecedor',
+			cnpj='33.333.333/0001-91',
+			endereco='Rua E',
+			cidade='Maceio',
+			estado='AL',
+		)
+		outro_produto = Produto.objects.create(
+			nome='Semente',
+			descricao='Descricao',
+			categoria=self.produto.categoria,
+			fornecedor=outro_fornecedor,
+			preco=10,
+			estoque=5,
+		)
+		self.adicionar_ao_carrinho(1)
+		self.client.post(
+			reverse('carrinho:adicionar', args=[outro_produto.pk]),
+			{'quantidade': 2},
+		)
+
+		response = self.client.post(reverse('pedidos:finalizar'))
+
+		pedido = Pedido.objects.get(usuario=self.usuario)
+		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
+		self.assertEqual(pedido.fornecedores.count(), 2)
+		self.assertEqual(pedido.itens.count(), 2)
+		pedido_a = pedido.fornecedores.get(fornecedor=self.fornecedor)
+		pedido_b = pedido.fornecedores.get(fornecedor=outro_fornecedor)
+		self.assertEqual(pedido_a.itens.count(), 1)
+		self.assertEqual(pedido_b.itens.count(), 1)
+
+		self.client.logout()
+		self.client.login(username='fornecedor@teste.local', password='Senha#2026')
+		response = self.client.get(reverse('pedidos:recebidos'))
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.context['pedidos']), 1)
+		self.assertEqual(response.context['pedidos'][0].fornecedor, self.fornecedor)
+		response = self.client.post(
+			reverse('fornecedor_pedido_status', args=[pedido_a.pk]),
+			{'status': PedidoFornecedor.Status.CONFIRMADO},
+		)
+		self.assertRedirects(response, reverse('pedidos:recebidos'))
+		pedido_a.refresh_from_db()
+		pedido_b.refresh_from_db()
+		self.assertEqual(pedido_a.status, PedidoFornecedor.Status.CONFIRMADO)
+		self.assertEqual(pedido_b.status, PedidoFornecedor.Status.PENDENTE)
+
+		response = self.client.post(
+			reverse('fornecedor_pedido_status', args=[pedido_b.pk]),
+			{'status': PedidoFornecedor.Status.ENVIADO},
+		)
+		self.assertEqual(response.status_code, 404)
+		pedido_b.refresh_from_db()
+		self.assertEqual(pedido_b.status, PedidoFornecedor.Status.PENDENTE)
+
+	def test_status_geral_e_derivado_dos_status_dos_fornecedores(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido = Pedido.objects.get(usuario=self.usuario)
+		pedido_fornecedor = pedido.fornecedores.get()
+		self.assertEqual(pedido.status, Pedido.Status.PENDENTE)
+
+		pedido_fornecedor.status = PedidoFornecedor.Status.ENTREGUE
+		pedido_fornecedor.save(update_fields=['status'])
+
+		self.assertEqual(pedido.status, Pedido.Status.ENTREGUE)
 
 	def test_finalizacao_cancelada_se_estoque_mudou(self):
 		self.adicionar_ao_carrinho(4)

@@ -10,7 +10,7 @@ from produtos.models import Produto
 
 from carrinho.models import Carrinho
 
-from .models import Pedido, PedidoItem
+from .models import Pedido, PedidoFornecedor, PedidoItem
 
 
 @agricultor_required
@@ -39,10 +39,18 @@ def finalizar_pedido(request):
 
 		pedido = Pedido.objects.create(usuario=request.user)
 		total = Decimal('0.00')
+		pedidos_fornecedor = {}
 		for item in itens:
 			produto = produtos[item.produto_id]
+			pedido_fornecedor = pedidos_fornecedor.get(produto.fornecedor_id)
+			if pedido_fornecedor is None:
+				pedido_fornecedor = PedidoFornecedor.objects.create(
+					pedido=pedido,
+					fornecedor=produto.fornecedor,
+				)
+				pedidos_fornecedor[produto.fornecedor_id] = pedido_fornecedor
 			pedido_item = PedidoItem.objects.create(
-				pedido=pedido,
+				pedido_fornecedor=pedido_fornecedor,
 				produto=produto,
 				quantidade=item.quantidade,
 				preco_unitario=produto.preco,
@@ -60,14 +68,16 @@ def finalizar_pedido(request):
 
 @agricultor_required
 def meus_pedidos(request):
-	pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related('itens__produto').order_by('-data')
+	pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related(
+		'fornecedores__itens__produto',
+	).order_by('-data')
 	return render(request, 'pedidos/meus_pedidos.html', {'pedidos': pedidos})
 
 
 @agricultor_required
 def pedido_detalhe(request, pk):
 	pedido = get_object_or_404(
-		Pedido.objects.prefetch_related('itens__produto__fornecedor'),
+		Pedido.objects.prefetch_related('fornecedores__itens__produto__fornecedor'),
 		pk=pk,
 		usuario=request.user,
 	)
@@ -77,31 +87,30 @@ def pedido_detalhe(request, pk):
 @fornecedor_required
 def pedidos_recebidos(request):
 	pedidos = (
-		Pedido.objects.filter(itens__produto__fornecedor=request.user.vendedor)
-		.distinct()
-		.prefetch_related('itens__produto', 'usuario')
-		.order_by('-data')
+		PedidoFornecedor.objects.filter(fornecedor=request.user.vendedor)
+		.select_related('pedido', 'pedido__usuario', 'fornecedor')
+		.prefetch_related('itens__produto')
 	)
 	return render(
 		request,
 		'pedidos/recebidos.html',
-		{'pedidos': pedidos, 'status_choices': Pedido.Status.choices},
+		{'pedidos': pedidos, 'status_choices': PedidoFornecedor.Status.choices},
 	)
 
 
 @fornecedor_required
 @require_POST
 def atualizar_status(request, pk):
-	pedido = get_object_or_404(
-		Pedido,
+	pedido_fornecedor = get_object_or_404(
+		PedidoFornecedor,
 		pk=pk,
-		itens__produto__fornecedor=request.user.vendedor,
+		fornecedor=request.user.vendedor,
 	)
 	status = request.POST.get('status')
-	if status not in Pedido.Status.values:
+	if status not in PedidoFornecedor.Status.values:
 		messages.error(request, 'Status de pedido invalido.')
 		return redirect('pedidos:recebidos')
-	pedido.status = status
-	pedido.save(update_fields=['status'])
-	messages.success(request, f'Status do pedido #{pedido.pk} atualizado.')
+	pedido_fornecedor.status = status
+	pedido_fornecedor.save(update_fields=['status', 'atualizado_em'])
+	messages.success(request, f'Status do pedido #{pedido_fornecedor.pedido_id} atualizado.')
 	return redirect('pedidos:recebidos')
