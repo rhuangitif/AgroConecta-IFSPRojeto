@@ -14,13 +14,13 @@
             <h1 class="display-5 fw-bold">{{ produto.nome }}</h1>
             <p class="text-muted"><i class="fa-solid fa-store me-2"></i>{{ produto.fornecedor.empresa }}</p>
             <p class="lead">{{ produto.descricao }}</p>
-            <div class="border-top border-bottom py-3 my-4"><span class="display-6 text-success">R$ {{ produto.preco }}</span><span class="text-muted"> por {{ produto.unidade_medida }}</span></div>
-            <p class="mb-4"><strong>Estoque:</strong> {% if produto.estoque > 0 %}{{ produto.estoque }} disponivel(is){% else %}Esgotado{% endif %}</p>
+            <div class="border-top border-bottom py-3 my-4"><span class="display-6 text-success">R$ {{ produto.preco }}</span><span class="text-muted"> por {{ produto.get_unidade_medida_display }}</span></div>
+            <p class="mb-4"><strong>Estoque:</strong> {% if produto.estoque > 0 %}{{ produto.estoque }} {{ produto.get_unidade_medida_display }} disponivel(is){% else %}Esgotado{% endif %}</p>
             {% if produto.estoque > 0 %}
                 {% if user.is_authenticated %}
                     <form method="post" action="{% url 'carrinho:adicionar' produto.pk %}" class="d-flex gap-2 align-items-end">
                         {% csrf_token %}
-                        <div><label class="form-label small" for="quantidade">Quantidade</label><input class="form-control" id="quantidade" name="quantidade" type="number" min="1" max="{{ produto.estoque }}" value="1" required></div>
+                        <div><label class="form-label small" for="quantidade">Quantidade</label><input class="form-control" id="quantidade" name="quantidade" type="number" min="{% if produto.unidade_inteira %}1{% else %}0.001{% endif %}" max="{{ produto.estoque }}" step="{% if produto.unidade_inteira %}1{% else %}0.001{% endif %}" value="{% if not produto.unidade_inteira and produto.estoque < 1 %}{{ produto.estoque }}{% else %}1{% endif %}" required></div>
                         <button class="btn btn-agro btn-lg" type="submit"><i class="fa-solid fa-cart-plus me-2"></i>Adicionar</button>
                     </form>
                 {% else %}

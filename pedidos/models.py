@@ -1,9 +1,11 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from produtos.models import Produto
+from produtos.models import Produto, validar_quantidade_unidade
 
 
 class StatusPedidoFornecedor(models.TextChoices):
@@ -101,7 +103,7 @@ class Pedido(models.Model):
 	)
 	data = models.DateTimeField(auto_now_add=True)
 	valor_total = models.DecimalField(
-		max_digits=12,
+		max_digits=22,
 		decimal_places=2,
 		default=0,
 		validators=[MinValueValidator(0)],
@@ -167,23 +169,43 @@ class PedidoItem(models.Model):
 		on_delete=models.PROTECT,
 		related_name='itens_pedido',
 	)
-	quantidade = models.PositiveIntegerField()
+	quantidade = models.DecimalField(
+		max_digits=10,
+		decimal_places=3,
+		validators=[MinValueValidator(Decimal('0.001'))],
+	)
 	preco_unitario = models.DecimalField(
 		max_digits=12,
 		decimal_places=2,
 		validators=[MinValueValidator(0)],
 	)
 	subtotal = models.DecimalField(
-		max_digits=12,
+		max_digits=22,
 		decimal_places=2,
 		default=0,
 		validators=[MinValueValidator(0)],
 	)
 
+	def clean(self):
+		super().clean()
+		if self.produto_id and self.quantidade is not None:
+			try:
+				validar_quantidade_unidade(
+					self.quantidade,
+					self.produto.unidade_medida,
+				)
+			except ValidationError as erro:
+				raise ValidationError({'quantidade': erro.messages}) from erro
+
 	def save(self, *args, **kwargs):
 		if not self.pedido_legado_id and self.pedido_fornecedor_id:
 			self.pedido_legado_id = self.pedido_fornecedor.pedido_id
-		self.subtotal = self.preco_unitario * self.quantidade
+		self.subtotal = (
+			Decimal(str(self.preco_unitario)) * Decimal(str(self.quantidade))
+		).quantize(
+			Decimal('0.01'),
+			rounding=ROUND_HALF_UP,
+		)
 		super().save(*args, **kwargs)
 
 	@property

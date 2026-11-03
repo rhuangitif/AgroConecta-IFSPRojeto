@@ -1,4 +1,4 @@
-from django.db.models import IntegerField, Q, Sum, Value
+from django.db.models import DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
 from pedidos.models import PedidoFornecedor, PedidoItem
@@ -33,7 +33,7 @@ def produtos_com_vendas():
                     filter=Q(itens_pedido__pedido_fornecedor__status__in=STATUS_COM_VENDA),
                 ),
                 Value(0),
-                output_field=IntegerField(),
+                output_field=DecimalField(max_digits=20, decimal_places=3),
             )
         )
     )

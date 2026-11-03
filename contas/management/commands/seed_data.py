@@ -158,8 +158,8 @@ class Command(BaseCommand):
             ('Semente de Milho', 'Sementes', fornecedor_b, 'Sementes de milho para diferentes ciclos.', '42.50', 55, 'saco'),
             ('Fertilizante NPK', 'Fertilizantes', fornecedor_a, 'Formula NPK para reforco nutricional.', '125.90', 30, 'saco'),
             ('Fertilizante Organico', 'Fertilizantes', fornecedor_b, 'Fertilizante organico para manejo do solo.', '98.00', 24, 'saco'),
-            ('Pulverizador Manual', 'Equipamentos', fornecedor_a, 'Pulverizador manual para pequenas areas.', '189.90', 12, 'unidade'),
-            ('Enxada Reforcada', 'Ferramentas', fornecedor_b, 'Ferramenta reforcada para preparo do solo.', '79.90', 18, 'unidade'),
+            ('Pulverizador Manual', 'Equipamentos', fornecedor_a, 'Pulverizador manual para pequenas areas.', '189.90', 12, 'un'),
+            ('Enxada Reforcada', 'Ferramentas', fornecedor_b, 'Ferramenta reforcada para preparo do solo.', '79.90', 18, 'un'),
         )
         criados = 0
         for nome, categoria, fornecedor, descricao, preco, estoque, unidade in produtos:

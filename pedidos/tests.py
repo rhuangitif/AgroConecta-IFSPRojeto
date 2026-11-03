@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import TestCase
 
 from django.contrib.auth import get_user_model
@@ -68,6 +70,22 @@ class PedidoTests(TestCase):
 		self.assertEqual(pedido.fornecedores.get().itens.count(), 1)
 		self.assertEqual(self.produto.estoque, 3)
 		self.assertEqual(Carrinho.objects.get(usuario=self.usuario).itens.count(), 0)
+
+	def test_finalizacao_calcula_quantidade_fracionaria_e_subtotal(self):
+		self.produto.unidade_medida = 'kg'
+		self.produto.save(update_fields=['unidade_medida'])
+		self.adicionar_ao_carrinho('0.125')
+
+		response = self.client.post(reverse('pedidos:finalizar'))
+
+		pedido = Pedido.objects.get(usuario=self.usuario)
+		item = pedido.itens.get()
+		self.produto.refresh_from_db()
+		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
+		self.assertEqual(item.quantidade, Decimal('0.125'))
+		self.assertEqual(item.subtotal, Decimal('3.13'))
+		self.assertEqual(pedido.valor_total, Decimal('3.13'))
+		self.assertEqual(self.produto.estoque, Decimal('4.875'))
 
 	def test_checkout_separa_itens_e_status_por_fornecedor(self):
 		outro_fornecedor_user = User.objects.create_user(

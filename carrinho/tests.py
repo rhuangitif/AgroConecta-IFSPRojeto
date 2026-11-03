@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import TestCase
 
 from django.contrib.auth import get_user_model
@@ -55,3 +57,28 @@ class CarrinhoTests(TestCase):
 			{'quantidade': 2},
 		)
 		self.assertEqual(carrinho.itens.get(pk=item.pk).quantidade, 2)
+
+	def test_adiciona_quantidade_fracionaria_para_produto_fracionavel(self):
+		self.produto.unidade_medida = 'kg'
+		self.produto.estoque = 2.500
+		self.produto.save(update_fields=['unidade_medida', 'estoque'])
+
+		response = self.client.post(
+			reverse('carrinho:adicionar', args=[self.produto.pk]),
+			{'quantidade': '0.125'},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		item = Carrinho.objects.get(usuario=self.usuario).itens.get()
+		self.assertEqual(item.quantidade, Decimal('0.125'))
+		self.assertEqual(item.subtotal, Decimal('1.56'))
+
+	def test_rejeita_quantidade_fracionaria_para_unidade_inteira(self):
+		response = self.client.post(
+			reverse('carrinho:adicionar', args=[self.produto.pk]),
+			{'quantidade': '1.5'},
+			follow=True,
+		)
+
+		self.assertContains(response, 'nao aceita fracao')
+		self.assertFalse(Carrinho.objects.filter(usuario=self.usuario).exists())

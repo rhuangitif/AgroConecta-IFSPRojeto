@@ -1,20 +1,24 @@
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from contas.decorators import agricultor_required
-from produtos.models import Produto
+from produtos.models import Produto, validar_quantidade_unidade
 
+from .forms import QuantidadeForm
 from .models import Carrinho, ItemCarrinho
 
 
-def _quantidade_enviada(request):
-	try:
-		quantidade = int(request.POST.get('quantidade', 1))
-	except (TypeError, ValueError):
-		return None
-	return quantidade if quantidade > 0 else None
+def _mensagem_erro_quantidade(request, form):
+	messages.error(request, form.errors['quantidade'][0])
+
+
+def _form_quantidade(request, unidade_medida):
+	dados = request.POST.copy()
+	dados.setdefault('quantidade', '1')
+	return QuantidadeForm(dados, unidade_medida=unidade_medida)
 
 
 @agricultor_required
@@ -27,17 +31,17 @@ def ver_carrinho(request):
 @agricultor_required
 @require_POST
 def adicionar(request, produto_id):
-	quantidade = _quantidade_enviada(request)
-	if quantidade is None:
-		messages.error(request, 'Informe uma quantidade valida.')
-		return redirect('produtos:detalhe', produto_id)
-
 	with transaction.atomic():
 		produto = get_object_or_404(
 			Produto.objects.select_for_update(),
 			pk=produto_id,
 			ativo=True,
 		)
+		form = _form_quantidade(request, produto.unidade_medida)
+		if not form.is_valid():
+			_mensagem_erro_quantidade(request, form)
+			return redirect('produtos:detalhe', produto_id)
+		quantidade = form.cleaned_data['quantidade']
 		if produto.estoque < quantidade:
 			messages.error(request, 'A quantidade solicitada excede o estoque disponivel.')
 			return redirect('produtos:detalhe', produto_id)
@@ -49,10 +53,20 @@ def adicionar(request, produto_id):
 		)
 		if not criado:
 			nova_quantidade = item.quantidade + quantidade
+			try:
+				validar_quantidade_unidade(nova_quantidade, produto.unidade_medida)
+			except ValidationError as erro:
+				messages.error(request, erro.messages[0])
+				return redirect('produtos:detalhe', produto_id)
 			if nova_quantidade > produto.estoque:
 				messages.error(request, 'A quantidade total no carrinho excede o estoque disponivel.')
 				return redirect('produtos:detalhe', produto_id)
 			item.quantidade = nova_quantidade
+			try:
+				item.full_clean()
+			except ValidationError as erro:
+				messages.error(request, ' '.join(erro.messages))
+				return redirect('produtos:detalhe', produto_id)
 			item.save(update_fields=['quantidade'])
 	messages.success(request, 'Produto adicionado ao carrinho.')
 	return redirect('carrinho:ver')
@@ -61,11 +75,6 @@ def adicionar(request, produto_id):
 @agricultor_required
 @require_POST
 def atualizar(request, item_id):
-	quantidade = _quantidade_enviada(request)
-	if quantidade is None:
-		messages.error(request, 'Informe uma quantidade valida.')
-		return redirect('carrinho:ver')
-
 	with transaction.atomic():
 		item = get_object_or_404(
 			ItemCarrinho.objects.select_for_update().select_related('produto'),
@@ -73,10 +82,20 @@ def atualizar(request, item_id):
 			carrinho__usuario=request.user,
 		)
 		produto = Produto.objects.select_for_update().get(pk=item.produto_id)
+		form = _form_quantidade(request, produto.unidade_medida)
+		if not form.is_valid():
+			_mensagem_erro_quantidade(request, form)
+			return redirect('carrinho:ver')
+		quantidade = form.cleaned_data['quantidade']
 		if quantidade > produto.estoque:
 			messages.error(request, f'O estoque disponivel e {produto.estoque}.')
 			return redirect('carrinho:ver')
 		item.quantidade = quantidade
+		try:
+			item.full_clean()
+		except ValidationError as erro:
+			messages.error(request, ' '.join(erro.messages))
+			return redirect('carrinho:ver')
 		item.save(update_fields=['quantidade'])
 	messages.success(request, 'Carrinho atualizado.')
 	return redirect('carrinho:ver')

@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import IntegerField, Sum, Value
+from django.db.models import DecimalField, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -22,7 +22,7 @@ def _produtos_publicos():
 			total_vendido=Coalesce(
 				Sum('itens_pedido__quantidade'),
 				Value(0),
-				output_field=IntegerField(),
+				output_field=DecimalField(max_digits=20, decimal_places=3),
 			)
 		)
 	)

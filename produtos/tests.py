@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.test import TestCase
 
 from django.contrib.auth import get_user_model
@@ -6,6 +8,7 @@ from django.urls import reverse
 from contas.models import Perfil
 from vendedores.models import Vendedor
 
+from .forms import ProdutoForm
 from .models import Categoria, Produto
 
 User = get_user_model()
@@ -68,3 +71,31 @@ class CatalogoTests(TestCase):
 		response = self.client.get(reverse('fornecedor_produto_editar', args=[self.produto.pk]))
 
 		self.assertEqual(response.status_code, 404)
+
+	def test_estoque_decimal_e_aceito_para_unidade_fracionavel(self):
+		form = ProdutoForm(data={
+			'nome': 'Milho',
+			'descricao': 'Descricao',
+			'categoria': self.categoria.pk,
+			'preco': '12.50',
+			'estoque': '1.250',
+			'unidade_medida': 'kg',
+			'ativo': 'on',
+		})
+
+		self.assertTrue(form.is_valid(), form.errors)
+		self.assertEqual(form.cleaned_data['estoque'], Decimal('1.250'))
+
+	def test_estoque_fracionario_e_rejeitado_para_unidade_inteira(self):
+		form = ProdutoForm(data={
+			'nome': 'Milho',
+			'descricao': 'Descricao',
+			'categoria': self.categoria.pk,
+			'preco': '12.50',
+			'estoque': '1.250',
+			'unidade_medida': 'un',
+			'ativo': 'on',
+		})
+
+		self.assertFalse(form.is_valid())
+		self.assertIn('estoque', form.errors)

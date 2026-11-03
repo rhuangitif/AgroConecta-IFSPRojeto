@@ -30,6 +30,14 @@ def finalizar_pedido(request):
 		produtos = {}
 		for item in itens:
 			produto = Produto.objects.select_for_update().get(pk=item.produto_id)
+			try:
+				item.full_clean()
+			except ValidationError as erro:
+				messages.error(
+					request,
+					f'Quantidade invalida para {produto.nome}: {" ".join(erro.messages)}',
+				)
+				return redirect('carrinho:ver')
 			if not produto.ativo or item.quantidade > produto.estoque:
 				messages.error(
 					request,
@@ -50,12 +58,15 @@ def finalizar_pedido(request):
 					fornecedor=produto.fornecedor,
 				)
 				pedidos_fornecedor[produto.fornecedor_id] = pedido_fornecedor
-			pedido_item = PedidoItem.objects.create(
+			pedido_item = PedidoItem(
 				pedido_fornecedor=pedido_fornecedor,
+				pedido_legado=pedido,
 				produto=produto,
 				quantidade=item.quantidade,
 				preco_unitario=produto.preco,
 			)
+			pedido_item.full_clean()
+			pedido_item.save()
 			total += pedido_item.subtotal
 			produto.estoque -= item.quantidade
 			produto.save(update_fields=['estoque', 'atualizado_em'])
