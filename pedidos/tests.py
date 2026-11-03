@@ -1,6 +1,7 @@
 from django.test import TestCase
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from carrinho.models import Carrinho
@@ -141,10 +142,84 @@ class PedidoTests(TestCase):
 		pedido_fornecedor = pedido.fornecedores.get()
 		self.assertEqual(pedido.status, Pedido.Status.PENDENTE)
 
-		pedido_fornecedor.status = PedidoFornecedor.Status.ENTREGUE
-		pedido_fornecedor.save(update_fields=['status'])
+		for status in (
+			PedidoFornecedor.Status.CONFIRMADO,
+			PedidoFornecedor.Status.PREPARANDO,
+			PedidoFornecedor.Status.ENVIADO,
+			PedidoFornecedor.Status.ENTREGUE,
+		):
+			pedido_fornecedor.alterar_status(status)
 
 		self.assertEqual(pedido.status, Pedido.Status.ENTREGUE)
+
+	def test_transicoes_validas_de_status(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+
+		for status in (
+			PedidoFornecedor.Status.CONFIRMADO,
+			PedidoFornecedor.Status.PREPARANDO,
+			PedidoFornecedor.Status.ENVIADO,
+			PedidoFornecedor.Status.ENTREGUE,
+		):
+			with self.subTest(status=status):
+				self.assertTrue(pedido_fornecedor.alterar_status(status))
+				pedido_fornecedor.refresh_from_db()
+				self.assertEqual(pedido_fornecedor.status, status)
+
+	def test_cancelamento_e_permitido_antes_do_envio_e_e_final(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+
+		self.assertTrue(
+			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CANCELADO)
+		)
+		with self.assertRaisesMessage(ValidationError, 'de Cancelado para Confirmado'):
+			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CONFIRMADO)
+
+		pedido_fornecedor.refresh_from_db()
+		self.assertEqual(pedido_fornecedor.status, PedidoFornecedor.Status.CANCELADO)
+
+	def test_transicoes_invalidas_e_status_final_sao_rejeitados(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+
+		with self.assertRaisesMessage(ValidationError, 'de Pendente para Entregue'):
+			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.ENTREGUE)
+
+		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CONFIRMADO)
+		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.PREPARANDO)
+		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.ENVIADO)
+		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.ENTREGUE)
+		with self.assertRaisesMessage(ValidationError, 'de Entregue para Pendente'):
+			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.PENDENTE)
+
+		pedido_fornecedor.refresh_from_db()
+		self.assertEqual(pedido_fornecedor.status, PedidoFornecedor.Status.ENTREGUE)
+
+	def test_view_retorna_erro_amigavel_para_transicao_invalida(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CONFIRMADO)
+
+		self.client.logout()
+		self.client.login(username='fornecedor@teste.local', password='Senha#2026')
+		response = self.client.post(
+			reverse('fornecedor_pedido_status', args=[pedido_fornecedor.pk]),
+			{'status': PedidoFornecedor.Status.PENDENTE},
+			follow=True,
+		)
+
+		self.assertContains(response, 'Não é possível alterar o status')
+		self.assertContains(response, 'Etapa não permitida')
+		self.assertContains(response, 'status-step')
+		self.assertContains(response, 'alert-status-transition')
+		pedido_fornecedor.refresh_from_db()
+		self.assertEqual(pedido_fornecedor.status, PedidoFornecedor.Status.CONFIRMADO)
 
 	def test_finalizacao_cancelada_se_estoque_mudou(self):
 		self.adicionar_ao_carrinho(4)

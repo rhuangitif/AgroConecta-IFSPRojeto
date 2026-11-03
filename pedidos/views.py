@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -101,16 +102,20 @@ def pedidos_recebidos(request):
 @fornecedor_required
 @require_POST
 def atualizar_status(request, pk):
-	pedido_fornecedor = get_object_or_404(
-		PedidoFornecedor,
-		pk=pk,
-		fornecedor=request.user.vendedor,
-	)
-	status = request.POST.get('status')
-	if status not in PedidoFornecedor.Status.values:
-		messages.error(request, 'Status de pedido invalido.')
-		return redirect('pedidos:recebidos')
-	pedido_fornecedor.status = status
-	pedido_fornecedor.save(update_fields=['status', 'atualizado_em'])
+	with transaction.atomic():
+		pedido_fornecedor = get_object_or_404(
+			PedidoFornecedor.objects.select_for_update(),
+			pk=pk,
+			fornecedor=request.user.vendedor,
+		)
+		try:
+			pedido_fornecedor.alterar_status(request.POST.get('status'))
+		except ValidationError as erro:
+			messages.error(
+				request,
+				' '.join(erro.messages),
+				extra_tags='status-transition',
+			)
+			return redirect('pedidos:recebidos')
 	messages.success(request, f'Status do pedido #{pedido_fornecedor.pedido_id} atualizado.')
 	return redirect('pedidos:recebidos')

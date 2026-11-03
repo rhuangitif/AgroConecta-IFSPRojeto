@@ -54,10 +54,29 @@
     {% if messages %}
         <div class="container pt-3">
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
-                </div>
+                {% if 'status-transition' in message.tags %}
+                    <div class="alert alert-danger alert-status-transition alert-dismissible fade show d-flex align-items-start gap-3 shadow-sm" role="alert">
+                        <span class="alert-status-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                        <div class="flex-grow-1 pe-4">
+                            <h2 class="h6 fw-bold mb-1">Etapa não permitida</h2>
+                            <p class="mb-3">{{ message }}</p>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2" aria-label="Fluxo de status do pedido">
+                                <span class="status-step">Pendente</span><i class="fa-solid fa-angle-right status-step-arrow" aria-hidden="true"></i>
+                                <span class="status-step">Confirmado</span><i class="fa-solid fa-angle-right status-step-arrow" aria-hidden="true"></i>
+                                <span class="status-step">Preparando</span><i class="fa-solid fa-angle-right status-step-arrow" aria-hidden="true"></i>
+                                <span class="status-step">Enviado</span><i class="fa-solid fa-angle-right status-step-arrow" aria-hidden="true"></i>
+                                <span class="status-step">Entregue</span>
+                            </div>
+                            <p class="small mb-0 text-danger-emphasis"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>O cancelamento pode ser feito até a etapa “Preparando”.</p>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    </div>
+                {% else %}
+                    <div class="alert {% if 'error' in message.tags %}alert-danger{% else %}alert-{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    </div>
+                {% endif %}
             {% endfor %}
         </div>
     {% endif %}

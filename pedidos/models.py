@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -12,6 +13,27 @@ class StatusPedidoFornecedor(models.TextChoices):
 	ENVIADO = 'enviado', 'Enviado'
 	ENTREGUE = 'entregue', 'Entregue'
 	CANCELADO = 'cancelado', 'Cancelado'
+
+
+TRANSICOES_STATUS_PEDIDO = {
+	StatusPedidoFornecedor.PENDENTE: {
+		StatusPedidoFornecedor.CONFIRMADO,
+		StatusPedidoFornecedor.CANCELADO,
+	},
+	StatusPedidoFornecedor.CONFIRMADO: {
+		StatusPedidoFornecedor.PREPARANDO,
+		StatusPedidoFornecedor.CANCELADO,
+	},
+	StatusPedidoFornecedor.PREPARANDO: {
+		StatusPedidoFornecedor.ENVIADO,
+		StatusPedidoFornecedor.CANCELADO,
+	},
+	StatusPedidoFornecedor.ENVIADO: {
+		StatusPedidoFornecedor.ENTREGUE,
+	},
+	StatusPedidoFornecedor.ENTREGUE: set(),
+	StatusPedidoFornecedor.CANCELADO: set(),
+}
 
 
 class PedidoFornecedor(models.Model):
@@ -47,6 +69,23 @@ class PedidoFornecedor(models.Model):
 	@property
 	def valor_total(self):
 		return sum(item.subtotal for item in self.itens.all())
+
+	def alterar_status(self, novo_status):
+		if novo_status not in self.Status.values:
+			raise ValidationError('O status informado é inválido.')
+		if novo_status == self.status:
+			return False
+		if novo_status not in TRANSICOES_STATUS_PEDIDO[self.status]:
+			status_atual = self.get_status_display()
+			status_novo = dict(self.Status.choices)[novo_status]
+			raise ValidationError(
+				f'Não é possível alterar o status de {status_atual} '
+				f'para {status_novo}.'
+			)
+
+		self.status = novo_status
+		self.save(update_fields=['status', 'atualizado_em'])
+		return True
 
 	def __str__(self):
 		return f'{self.pedido} - {self.fornecedor}'
