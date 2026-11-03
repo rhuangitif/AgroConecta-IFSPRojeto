@@ -1,16 +1,16 @@
 from django.db.models import IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
-from pedidos.models import Pedido, PedidoItem
+from pedidos.models import PedidoFornecedor, PedidoItem
 from produtos.models import Categoria, Produto
 
 
 STATUS_COM_VENDA = [
-    Pedido.Status.PENDENTE,
-    Pedido.Status.CONFIRMADO,
-    Pedido.Status.PREPARANDO,
-    Pedido.Status.ENVIADO,
-    Pedido.Status.ENTREGUE,
+    PedidoFornecedor.Status.PENDENTE,
+    PedidoFornecedor.Status.CONFIRMADO,
+    PedidoFornecedor.Status.PREPARANDO,
+    PedidoFornecedor.Status.ENVIADO,
+    PedidoFornecedor.Status.ENTREGUE,
 ]
 
 CATEGORIAS_RELACIONADAS = {
@@ -30,7 +30,7 @@ def produtos_com_vendas():
             total_vendido=Coalesce(
                 Sum(
                     'itens_pedido__quantidade',
-                    filter=Q(itens_pedido__pedido__status__in=STATUS_COM_VENDA),
+                    filter=Q(itens_pedido__pedido_fornecedor__status__in=STATUS_COM_VENDA),
                 ),
                 Value(0),
                 output_field=IntegerField(),
@@ -45,8 +45,8 @@ def ranking_mais_vendidos(limite=10):
 
 def produtos_recomendados(usuario, limite=8):
     historico = PedidoItem.objects.filter(
-        pedido__usuario=usuario,
-        pedido__status__in=STATUS_COM_VENDA,
+        pedido_fornecedor__pedido__usuario=usuario,
+        pedido_fornecedor__status__in=STATUS_COM_VENDA,
     )
     categorias_compradas = set(historico.values_list('produto__categoria_id', flat=True))
     produtos_comprados = set(historico.values_list('produto_id', flat=True))

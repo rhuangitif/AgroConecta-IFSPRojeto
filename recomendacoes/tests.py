@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 
 from contas.models import Perfil
-from pedidos.models import Pedido, PedidoItem
+from pedidos.models import Pedido, PedidoFornecedor, PedidoItem
 from produtos.models import Categoria, Produto
 from vendedores.models import Vendedor
 
@@ -37,8 +37,18 @@ class RecomendacoesTests(TestCase):
 			nome='Fertilizante', descricao='Descricao', categoria=fertilizantes,
 			fornecedor=fornecedor, preco=30, estoque=10,
 		)
-		pedido = Pedido.objects.create(usuario=agricultor, status=Pedido.Status.ENTREGUE, valor_total=80)
-		PedidoItem.objects.create(pedido=pedido, produto=semente, quantidade=4, preco_unitario=20)
+		pedido = Pedido.objects.create(usuario=agricultor, valor_total=80)
+		pedido_fornecedor = PedidoFornecedor.objects.create(
+			pedido=pedido,
+			fornecedor=fornecedor,
+			status=PedidoFornecedor.Status.ENTREGUE,
+		)
+		PedidoItem.objects.create(
+			pedido_fornecedor=pedido_fornecedor,
+			produto=semente,
+			quantidade=4,
+			preco_unitario=20,
+		)
 
 		recomendados, tem_historico = produtos_recomendados(agricultor)
 		ranking = list(ranking_mais_vendidos())
