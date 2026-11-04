@@ -1,12 +1,13 @@
 from decimal import Decimal
 
 from django.test import TestCase
+from django.test import TransactionTestCase
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from carrinho.models import Carrinho
+from carrinho.models import Carrinho, ItemCarrinho
 from contas.models import Perfil
 from produtos.models import Categoria, Produto
 from vendedores.models import Vendedor
@@ -190,15 +191,39 @@ class PedidoTests(TestCase):
 		self.adicionar_ao_carrinho(1)
 		self.client.post(reverse('pedidos:finalizar'))
 		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 4)
 
 		self.assertTrue(
 			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CANCELADO)
 		)
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 5)
+		self.assertFalse(
+			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CANCELADO)
+		)
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 5)
 		with self.assertRaisesMessage(ValidationError, 'de Cancelado para Confirmado'):
 			pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CONFIRMADO)
 
 		pedido_fornecedor.refresh_from_db()
 		self.assertEqual(pedido_fornecedor.status, PedidoFornecedor.Status.CANCELADO)
+
+	def test_cancelar_pedido_devolve_estoque_uma_unica_vez(self):
+		self.adicionar_ao_carrinho(2)
+		self.client.post(reverse('pedidos:finalizar'))
+		pedido = Pedido.objects.get(usuario=self.usuario)
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 3)
+
+		self.assertTrue(pedido.cancelar())
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 5)
+		self.assertFalse(pedido.cancelar())
+		self.produto.refresh_from_db()
+		self.assertEqual(self.produto.estoque, 5)
+		self.assertEqual(pedido.status, Pedido.Status.CANCELADO)
 
 	def test_transicoes_invalidas_e_status_final_sao_rejeitados(self):
 		self.adicionar_ao_carrinho(1)
@@ -244,8 +269,80 @@ class PedidoTests(TestCase):
 		self.produto.estoque = 2
 		self.produto.save(update_fields=['estoque', 'atualizado_em'])
 
-		response = self.client.post(reverse('pedidos:finalizar'))
+		response = self.client.post(reverse('pedidos:finalizar'), follow=True)
 
 		self.assertRedirects(response, reverse('carrinho:ver'))
+		self.assertContains(response, 'Estoque insuficiente')
 		self.assertFalse(Pedido.objects.filter(usuario=self.usuario).exists())
 		self.assertEqual(Carrinho.objects.get(usuario=self.usuario).itens.count(), 1)
+
+
+class PedidoEstoqueConcorrenciaTests(TransactionTestCase):
+	def setUp(self):
+		self.usuarios = []
+		for numero in (1, 2):
+			usuario = User.objects.create_user(
+				username=f'agricultor{numero}@teste.local',
+				password='Senha#2026',
+			)
+			Perfil.objects.create(usuario=usuario, tipo=Perfil.Tipo.AGRICULTOR)
+			carrinho = Carrinho.objects.create(usuario=usuario)
+			self.usuarios.append((usuario, carrinho))
+
+		fornecedor_user = User.objects.create_user(
+			username='fornecedor@concorrencia.local',
+			password='Senha#2026',
+		)
+		Perfil.objects.create(usuario=fornecedor_user, tipo=Perfil.Tipo.FORNECEDOR)
+		fornecedor = Vendedor.objects.create(
+			usuario=fornecedor_user,
+			empresa='Fornecedor concorrencia',
+			cnpj='55.555.555/0001-55',
+			email='fornecedor@concorrencia.local',
+			telefone='5',
+			endereco='Rua E',
+			cidade='Maceio',
+			estado='AL',
+		)
+		categoria = Categoria.objects.create(nome='Estoque', slug='estoque')
+		self.produto = Produto.objects.create(
+			nome='Ultimo item',
+			descricao='Produto com uma unidade em estoque',
+			categoria=categoria,
+			fornecedor=fornecedor,
+			preco=10,
+			estoque=1,
+		)
+		for _, carrinho in self.usuarios:
+			ItemCarrinho.objects.create(
+				carrinho=carrinho,
+				produto=self.produto,
+				quantidade=1,
+			)
+
+	def test_segundo_checkout_nao_compra_estoque_ja_consumido(self):
+		primeiro_usuario, _ = self.usuarios[0]
+		segundo_usuario, segundo_carrinho = self.usuarios[1]
+
+		self.client.login(
+			username=primeiro_usuario.username,
+			password='Senha#2026',
+		)
+		primeira_resposta = self.client.post(reverse('pedidos:finalizar'))
+		self.assertEqual(primeira_resposta.status_code, 302)
+
+		self.client.logout()
+		self.client.login(
+			username=segundo_usuario.username,
+			password='Senha#2026',
+		)
+		segunda_resposta = self.client.post(
+			reverse('pedidos:finalizar'),
+			follow=True,
+		)
+
+		self.produto.refresh_from_db()
+		self.assertContains(segunda_resposta, 'Estoque insuficiente')
+		self.assertEqual(self.produto.estoque, 0)
+		self.assertEqual(Pedido.objects.count(), 1)
+		self.assertEqual(segundo_carrinho.itens.count(), 1)

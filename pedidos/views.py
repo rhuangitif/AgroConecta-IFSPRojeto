@@ -27,9 +27,15 @@ def finalizar_pedido(request):
 			messages.error(request, 'Seu carrinho esta vazio.')
 			return redirect('carrinho:ver')
 
-		produtos = {}
+		produto_ids = sorted({item.produto_id for item in itens})
+		produtos = {
+			produto.pk: produto
+			for produto in Produto.objects.select_for_update()
+			.filter(pk__in=produto_ids)
+			.order_by('pk')
+		}
 		for item in itens:
-			produto = Produto.objects.select_for_update().get(pk=item.produto_id)
+			produto = produtos[item.produto_id]
 			try:
 				item.full_clean()
 			except ValidationError as erro:
@@ -44,7 +50,6 @@ def finalizar_pedido(request):
 					f'Estoque insuficiente para {produto.nome}. Revise seu carrinho.',
 				)
 				return redirect('carrinho:ver')
-			produtos[produto.pk] = produto
 
 		pedido = Pedido.objects.create(usuario=request.user)
 		total = Decimal('0.00')

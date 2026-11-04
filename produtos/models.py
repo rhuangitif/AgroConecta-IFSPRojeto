@@ -100,6 +100,12 @@ class Produto(models.Model):
 			models.Index(fields=('ativo', 'categoria')),
 			models.Index(fields=('fornecedor', 'ativo')),
 		]
+		constraints = [
+			models.CheckConstraint(
+				condition=models.Q(estoque__gte=0),
+				name='produto_estoque_nao_negativo',
+			),
+		]
 
 	def clean(self):
 		super().clean()

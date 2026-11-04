@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from django.contrib.auth import get_user_model
@@ -99,3 +101,15 @@ class CatalogoTests(TestCase):
 
 		self.assertFalse(form.is_valid())
 		self.assertIn('estoque', form.errors)
+
+	def test_estoque_nao_pode_ser_negativo(self):
+		self.produto.estoque = Decimal('-0.001')
+
+		with self.assertRaises(ValidationError):
+			self.produto.full_clean()
+
+		with self.assertRaises(IntegrityError):
+			with transaction.atomic():
+				Produto.objects.filter(pk=self.produto.pk).update(
+					estoque=Decimal('-0.001'),
+				)

@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 from produtos.models import Produto, validar_quantidade_unidade
 
@@ -73,21 +73,45 @@ class PedidoFornecedor(models.Model):
 		return sum(item.subtotal for item in self.itens.all())
 
 	def alterar_status(self, novo_status):
-		if novo_status not in self.Status.values:
-			raise ValidationError('O status informado é inválido.')
-		if novo_status == self.status:
-			return False
-		if novo_status not in TRANSICOES_STATUS_PEDIDO[self.status]:
-			status_atual = self.get_status_display()
-			status_novo = dict(self.Status.choices)[novo_status]
-			raise ValidationError(
-				f'Não é possível alterar o status de {status_atual} '
-				f'para {status_novo}.'
-			)
+		with transaction.atomic():
+			pedido_fornecedor = type(self).objects.select_for_update().get(pk=self.pk)
+			if novo_status not in self.Status.values:
+				raise ValidationError('O status informado é inválido.')
+			if novo_status == pedido_fornecedor.status:
+				self.status = pedido_fornecedor.status
+				return False
+			if novo_status not in TRANSICOES_STATUS_PEDIDO[pedido_fornecedor.status]:
+				status_atual = pedido_fornecedor.get_status_display()
+				status_novo = dict(self.Status.choices)[novo_status]
+				raise ValidationError(
+					f'Não é possível alterar o status de {status_atual} '
+					f'para {status_novo}.'
+				)
 
-		self.status = novo_status
-		self.save(update_fields=['status', 'atualizado_em'])
-		return True
+			if novo_status == self.Status.CANCELADO:
+				quantidades = {}
+				for produto_id, quantidade in PedidoItem.objects.filter(
+					pedido_fornecedor=pedido_fornecedor,
+				).values_list('produto_id', 'quantidade'):
+					quantidades[produto_id] = (
+						quantidades.get(produto_id, Decimal('0')) + quantidade
+					)
+				produtos = {
+					produto.pk: produto
+					for produto in Produto.objects.select_for_update()
+					.filter(pk__in=quantidades)
+					.order_by('pk')
+				}
+				for produto_id, quantidade in quantidades.items():
+					produto = produtos[produto_id]
+					produto.estoque += quantidade
+					produto.full_clean()
+					produto.save(update_fields=['estoque', 'atualizado_em'])
+
+			pedido_fornecedor.status = novo_status
+			pedido_fornecedor.save(update_fields=['status', 'atualizado_em'])
+			self.status = novo_status
+			return True
 
 	def __str__(self):
 		return f'{self.pedido} - {self.fornecedor}'
@@ -143,6 +167,18 @@ class Pedido(models.Model):
 		if len(statuses) > 1 and self.Status.CANCELADO in statuses:
 			return 'Parcialmente cancelado'
 		return dict(self.Status.choices).get(self.status, self.status)
+
+	@transaction.atomic
+	def cancelar(self):
+		pedido = type(self).objects.select_for_update().get(pk=self.pk)
+		fornecedores = pedido.fornecedores.select_for_update().order_by('pk')
+		alterado = False
+		for pedido_fornecedor in fornecedores:
+			alterado = (
+				pedido_fornecedor.alterar_status(self.Status.CANCELADO)
+				or alterado
+			)
+		return alterado
 
 	@property
 	def itens(self):
