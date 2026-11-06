@@ -1,8 +1,8 @@
-from django.db.models import DecimalField, Q, Sum, Value
+from django.db.models import Case, DecimalField, F, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 
 from pedidos.models import PedidoFornecedor, PedidoItem
-from produtos.models import Categoria, Produto
+from produtos.models import Produto
 
 
 STATUS_COM_VENDA = [
@@ -13,13 +13,10 @@ STATUS_COM_VENDA = [
     PedidoFornecedor.Status.ENTREGUE,
 ]
 
-CATEGORIAS_RELACIONADAS = {
-    'semente': ('fertilizante', 'defensivo'),
-    'fertilizante': ('semente', 'defensivo'),
-    'defensivo': ('semente', 'fertilizante'),
-    'ferramenta': ('equipamento',),
-    'equipamento': ('ferramenta',),
-}
+FONTE_HISTORICO = 'historico'
+FONTE_MAIS_VENDIDOS = 'mais_vendidos'
+FONTE_SEM_VENDAS = 'sem_vendas'
+FONTE_VAZIA = 'vazia'
 
 
 def produtos_com_vendas():
@@ -44,50 +41,108 @@ def ranking_mais_vendidos(limite=10):
 
 
 def produtos_recomendados(usuario, limite=8):
+    """Recommend in-stock products using purchase-category demand and real sales.
+
+    Inputs are the user's non-cancelled order items and active products with
+    available stock. Categories are ranked by the total quantity the user
+    bought, descending, with category ID as the tie-breaker. Previously bought
+    products and products with no non-cancelled sales are excluded. Remaining
+    products are ordered by category rank, sales quantity descending, unit
+    price ascending, then product ID ascending. If this produces no results,
+    use best sellers (sales, price, ID) as an explicitly labeled fallback;
+    when no products have sales yet, fall back to available catalog products.
+
+    Returns the products, whether the user has qualifying history, and a
+    source key for the UI to label any fallback.
+    """
     historico = PedidoItem.objects.filter(
         pedido_fornecedor__pedido__usuario=usuario,
         pedido_fornecedor__status__in=STATUS_COM_VENDA,
     )
-    categorias_compradas = set(historico.values_list('produto__categoria_id', flat=True))
     produtos_comprados = set(historico.values_list('produto_id', flat=True))
-
-    if not categorias_compradas:
-        return ranking_mais_vendidos(limite), False
-
-    nomes_categorias = Categoria.objects.filter(pk__in=categorias_compradas).values_list('nome', flat=True)
-    termos_relacionados = set()
-    for nome in nomes_categorias:
-        nome_normalizado = nome.lower()
-        for termo, relacionados in CATEGORIAS_RELACIONADAS.items():
-            if termo in nome_normalizado:
-                termos_relacionados.update(relacionados)
-
-    categorias_relacionadas = Categoria.objects.filter(
-        ativa=True,
-        pk__in=categorias_compradas,
+    categorias_compradas = list(
+        historico.values('produto__categoria_id')
+        .annotate(quantidade_comprada=Sum('quantidade'))
+        .order_by('-quantidade_comprada', 'produto__categoria_id')
     )
-    for termo in termos_relacionados:
-        categorias_relacionadas = categorias_relacionadas | Categoria.objects.filter(
-            ativa=True,
-            nome__icontains=termo,
+    tem_historico = bool(categorias_compradas)
+
+    if categorias_compradas:
+        prioridades = {
+            categoria['produto__categoria_id']: prioridade
+            for prioridade, categoria in enumerate(categorias_compradas)
+        }
+        recomendados = (
+            produtos_com_vendas()
+            .filter(
+                categoria_id__in=prioridades,
+                estoque__gt=0,
+                total_vendido__gt=0,
+            )
+            .exclude(pk__in=produtos_comprados)
+            .annotate(
+                prioridade_categoria=Case(
+                    *(
+                        When(categoria_id=categoria_id, then=Value(prioridade))
+                        for categoria_id, prioridade in prioridades.items()
+                    ),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('prioridade_categoria', '-total_vendido', 'preco', 'pk')
         )
 
-    recomendados = produtos_com_vendas().filter(
-        categoria__in=categorias_relacionadas,
-        estoque__gt=0,
-    ).exclude(pk__in=produtos_comprados).order_by('-total_vendido', 'preco', 'nome')
-    return recomendados[:limite], True
+        if recomendados.exists():
+            return recomendados[:limite], True, FONTE_HISTORICO
+
+    mais_vendidos = (
+        produtos_com_vendas()
+        .filter(estoque__gt=0, total_vendido__gt=0)
+        .exclude(pk__in=produtos_comprados)
+        .order_by('-total_vendido', 'preco', 'pk')
+    )
+    if mais_vendidos.exists():
+        return mais_vendidos[:limite], tem_historico, FONTE_MAIS_VENDIDOS
+
+    catalogo = (
+        produtos_com_vendas()
+        .filter(estoque__gt=0)
+        .exclude(pk__in=produtos_comprados)
+        .order_by('preco', 'pk')
+    )
+    if catalogo.exists():
+        return catalogo[:limite], tem_historico, FONTE_SEM_VENDAS
+    return catalogo.none(), tem_historico, FONTE_VAZIA
 
 
 def melhores_precos(limite=6):
-    produtos = produtos_com_vendas().filter(estoque__gt=0).order_by('categoria_id', 'preco', 'nome')
+    """Return one lowest-price item per equivalent category and measure unit.
+
+    Product price is already specified per its listed unit. Products are
+    comparable only when both category and unit match, so the cheapest product
+    wins each group; equal prices are resolved by product ID. Winners are
+    returned by price-per-unit ascending, then category, unit, and product ID.
+    """
+    produtos = (
+        produtos_com_vendas()
+        .filter(estoque__gt=0)
+        .annotate(preco_por_unidade=F('preco'))
+        .order_by('categoria_id', 'unidade_medida', 'preco_por_unidade', 'pk')
+    )
     encontrados = []
-    categorias_vistas = set()
+    grupos_vistos = set()
     for produto in produtos:
-        if produto.categoria_id in categorias_vistas:
+        grupo = (produto.categoria_id, produto.unidade_medida)
+        if grupo in grupos_vistos:
             continue
-        categorias_vistas.add(produto.categoria_id)
+        grupos_vistos.add(grupo)
         encontrados.append(produto)
-        if len(encontrados) == limite:
-            break
-    return encontrados
+    return sorted(
+        encontrados,
+        key=lambda produto: (
+            produto.preco_por_unidade,
+            produto.categoria_id,
+            produto.unidade_medida,
+            produto.pk,
+        ),
+    )[:limite]

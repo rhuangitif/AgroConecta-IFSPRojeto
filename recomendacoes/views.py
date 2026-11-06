@@ -6,13 +6,14 @@ from .services import melhores_precos, produtos_recomendados, ranking_mais_vendi
 
 @login_required
 def painel_recomendacoes(request):
-	recomendados, tem_historico = produtos_recomendados(request.user)
+	recomendados, tem_historico, fonte_recomendacao = produtos_recomendados(request.user)
 	return render(
 		request,
 		'recomendacoes/painel.html',
 		{
 			'recomendados': recomendados,
 			'tem_historico': tem_historico,
+			'fonte_recomendacao': fonte_recomendacao,
 			'melhores_precos': melhores_precos(),
 		},
 	)

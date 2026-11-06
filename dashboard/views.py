@@ -17,7 +17,10 @@ User = get_user_model()
 
 @agricultor_required
 def agricultor_dashboard(request):
-	recomendados, tem_historico = produtos_recomendados(request.user, limite=6)
+	recomendados, tem_historico, fonte_recomendacao = produtos_recomendados(
+		request.user,
+		limite=6,
+	)
 	pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related(
 		'fornecedores__itens__produto',
 	)[:5]
@@ -28,6 +31,7 @@ def agricultor_dashboard(request):
 		{
 			'recomendados': recomendados,
 			'tem_historico': tem_historico,
+			'fonte_recomendacao': fonte_recomendacao,
 			'pedidos': pedidos,
 			'itens_carrinho': carrinho.itens.count() if carrinho else 0,
 		},
