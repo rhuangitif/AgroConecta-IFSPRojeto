@@ -13,7 +13,7 @@ class DashboardPermissaoTests(TestCase):
 		self.agricultor = User.objects.create_user(
 			username='agricultor@teste.local', password='Senha#2026',
 		)
-		Perfil.objects.create(usuario=self.agricultor, tipo=Perfil.Tipo.AGRICULTOR)
+		Perfil.objects.create(usuario=self.agricultor)
 		self.admin = User.objects.create_superuser(
 			username='admin@teste.local', password='Senha#2026', email='admin@teste.local',
 		)

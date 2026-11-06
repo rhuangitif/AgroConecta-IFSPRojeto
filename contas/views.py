@@ -85,9 +85,7 @@ def editar_perfil(request):
 			user_form.save()
 			perfil_form.save()
 			if vendedor_form:
-				fornecedor = vendedor_form.save(commit=False)
-				fornecedor.email = request.user.email
-				fornecedor.save()
+				vendedor_form.save()
 		messages.success(request, 'Perfil atualizado com sucesso.')
 		return redirect('contas:perfil')
 

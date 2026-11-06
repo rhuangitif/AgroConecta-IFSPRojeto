@@ -34,7 +34,7 @@ class RecomendacoesTests(TestCase):
 
 	def criar_usuario(self, username):
 		usuario = User.objects.create_user(username=username)
-		Perfil.objects.create(usuario=usuario, tipo=Perfil.Tipo.AGRICULTOR)
+		Perfil.objects.create(usuario=usuario)
 		return usuario
 
 	def criar_fornecedor(self):
@@ -42,12 +42,10 @@ class RecomendacoesTests(TestCase):
 		return Vendedor.objects.create(
 			usuario=usuario,
 			empresa='Fornecedor',
-			cnpj='55.555.555/0001-55',
-			email='fornecedor@teste.local',
-			telefone='5',
+			cnpj='12345678000780',
 			endereco='Rua E',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 
 	def criar_produto(self, nome, categoria, preco, unidade='kg'):

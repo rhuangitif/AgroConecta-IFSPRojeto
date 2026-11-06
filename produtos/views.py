@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import DecimalField, Sum, Value
+from django.db.models import DecimalField, Exists, OuterRef, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -12,6 +12,7 @@ from recomendacoes.services import ranking_mais_vendidos
 
 from .forms import CatalogoFiltroForm, ProdutoForm
 from .models import Produto
+from pedidos.models import PedidoItem
 
 
 def _produtos_publicos():
@@ -85,7 +86,11 @@ def mais_vendidos(request):
 
 @fornecedor_required
 def meus_produtos(request):
-	produtos = Produto.objects.filter(fornecedor=request.user.vendedor).select_related('categoria')
+	produtos = (
+		Produto.objects.filter(fornecedor=request.user.vendedor)
+		.select_related('categoria')
+		.annotate(tem_vendas=Exists(PedidoItem.objects.filter(produto_id=OuterRef('pk'))))
+	)
 	return render(request, 'produtos/meus_produtos.html', {'produtos': produtos})
 
 

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
@@ -8,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from contas.models import Perfil
+from pedidos.models import Pedido, PedidoFornecedor, PedidoItem
 from vendedores.models import Vendedor
 
 from .forms import ProdutoForm
@@ -21,27 +23,23 @@ class CatalogoTests(TestCase):
 		self.categoria = Categoria.objects.create(nome='Sementes', slug='sementes')
 		self.usuario_a = User.objects.create_user(username='a@teste.local', password='Senha#2026')
 		self.usuario_b = User.objects.create_user(username='b@teste.local', password='Senha#2026')
-		Perfil.objects.create(usuario=self.usuario_a, tipo=Perfil.Tipo.FORNECEDOR)
-		Perfil.objects.create(usuario=self.usuario_b, tipo=Perfil.Tipo.FORNECEDOR)
+		Perfil.objects.create(usuario=self.usuario_a)
+		Perfil.objects.create(usuario=self.usuario_b)
 		self.fornecedor_a = Vendedor.objects.create(
 			usuario=self.usuario_a,
 			empresa='Fornecedor A',
-			cnpj='11.111.111/0001-11',
-			email='a@teste.local',
-			telefone='1',
+			cnpj='12345678000195',
 			endereco='Rua A',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		self.fornecedor_b = Vendedor.objects.create(
 			usuario=self.usuario_b,
 			empresa='Fornecedor B',
-			cnpj='22.222.222/0001-22',
-			email='b@teste.local',
-			telefone='2',
+			cnpj='12345678000276',
 			endereco='Rua B',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		self.produto = Produto.objects.create(
 			nome='Semente de Milho',
@@ -113,3 +111,30 @@ class CatalogoTests(TestCase):
 				Produto.objects.filter(pk=self.produto.pk).update(
 					estoque=Decimal('-0.001'),
 				)
+
+	def test_slug_e_gerado_com_sufixo_unico(self):
+		primeira = Categoria.objects.create(nome='Graos', slug='slug-manual')
+		segunda = Categoria.objects.create(nome='Grãos', slug='slug-manual')
+
+		self.assertEqual(primeira.slug, 'graos')
+		self.assertEqual(segunda.slug, 'graos-2')
+
+	def test_produto_com_venda_e_desativado_e_protegido(self):
+		pedido = Pedido.objects.create(usuario=self.usuario_a)
+		pedido_fornecedor = PedidoFornecedor.objects.create(
+			pedido=pedido,
+			fornecedor=self.fornecedor_a,
+		)
+		PedidoItem.objects.create(
+			pedido_fornecedor=pedido_fornecedor,
+			produto=self.produto,
+			quantidade=1,
+			preco_unitario=self.produto.preco,
+		)
+
+		self.produto.delete()
+
+		self.produto.refresh_from_db()
+		self.assertFalse(self.produto.ativo)
+		with self.assertRaises(ProtectedError):
+			Produto.objects.filter(pk=self.produto.pk).delete()

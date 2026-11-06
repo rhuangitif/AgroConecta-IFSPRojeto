@@ -1,8 +1,10 @@
 from decimal import Decimal
+from itertools import count
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils.text import slugify
 
 from vendedores.models import Vendedor
 
@@ -48,7 +50,7 @@ def validar_quantidade_unidade(quantidade, unidade, permitir_zero=False):
 class Categoria(models.Model):
 	nome = models.CharField(max_length=80, unique=True)
 	descricao = models.TextField(blank=True)
-	slug = models.SlugField(max_length=90, unique=True, blank=True, null=True)
+	slug = models.SlugField(max_length=90, unique=True, editable=False)
 	ativa = models.BooleanField(default=True)
 
 	class Meta:
@@ -58,6 +60,18 @@ class Categoria(models.Model):
 
 	def __str__(self):
 		return self.nome
+
+	def save(self, *args, **kwargs):
+		if self._state.adding or not self.slug:
+			base = slugify(self.nome)[:90].strip('-') or 'categoria'
+			candidato = base
+			for sufixo in count(2):
+				if not type(self).objects.filter(slug=candidato).exclude(pk=self.pk).exists():
+					break
+				final = f'-{sufixo}'
+				candidato = f'{base[:90 - len(final)].rstrip("-")}{final}'
+			self.slug = candidato
+		super().save(*args, **kwargs)
 
 
 class Produto(models.Model):
@@ -125,3 +139,10 @@ class Produto(models.Model):
 
 	def __str__(self):
 		return self.nome
+
+	def delete(self, *args, **kwargs):
+		if self.itens_pedido.exists():
+			self.ativo = False
+			self.save(update_fields=['ativo', 'atualizado_em'])
+			return 0, {}
+		return super().delete(*args, **kwargs)

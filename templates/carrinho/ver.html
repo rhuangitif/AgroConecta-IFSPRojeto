@@ -15,7 +15,7 @@
                     </div></div></article>
                 {% endfor %}
             </div>
-            <div class="col-lg-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><h2 class="h5">Resumo</h2><div class="d-flex justify-content-between border-top pt-3 mt-3"><span>Total</span><strong class="h4 text-success mb-0">R$ {{ carrinho.total }}</strong></div><form method="post" action="{% url 'pedidos:finalizar' %}">{% csrf_token %}<button class="btn btn-agro w-100 mt-4" type="submit"><i class="fa-solid fa-check me-2"></i>Finalizar pedido</button></form></div></div></div>
+            <div class="col-lg-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><h2 class="h5">Entrega e pagamento</h2><form method="post" action="{% url 'pedidos:finalizar' %}">{% csrf_token %}{% for field in pedido_form %}<div class="mb-3">{{ field.label_tag }}{{ field }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}<div class="d-flex justify-content-between border-top pt-3 mt-3"><span>Total</span><strong class="h4 text-success mb-0">R$ {{ carrinho.total }}</strong></div><button class="btn btn-agro w-100 mt-4" type="submit"><i class="fa-solid fa-check me-2"></i>Finalizar pedido</button></form></div></div></div>
         </div>
     {% else %}<div class="card border-0 shadow-sm"><div class="card-body text-center py-5"><i class="fa-solid fa-cart-shopping text-success fs-1 mb-3"></i><h2 class="h4">Seu carrinho esta vazio</h2><p class="text-muted">Explore o catalogo e encontre produtos para sua producao.</p><a class="btn btn-agro" href="{% url 'produtos:catalogo' %}"><i class="fa-solid fa-boxes-stacked me-2"></i>Ver produtos</a></div></div>{% endif %}
 </section>

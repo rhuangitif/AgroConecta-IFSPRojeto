@@ -64,7 +64,7 @@ def fornecedor_dashboard(request):
 			'estoque_baixo': produtos.filter(estoque__lte=5, ativo=True),
 			'total_pedidos': pedidos.values('pedido_id').distinct().count(),
 			'total_vendido': total_vendido,
-			'ultimos_pedidos': pedidos.order_by('-pedido__data')[:5],
+			'ultimos_pedidos': pedidos.order_by('-pedido__criado_em')[:5],
 			'status_labels': [label for value, label in PedidoFornecedor.Status.choices],
 			'status_values': [
 				status_counts.get(value, 0)
@@ -84,8 +84,12 @@ def administrador_dashboard(request):
 		'dashboard/administrador.html',
 		{
 			'total_usuarios': User.objects.count(),
-			'total_agricultores': Perfil.objects.filter(tipo=Perfil.Tipo.AGRICULTOR).count(),
-			'total_fornecedores': Perfil.objects.filter(tipo=Perfil.Tipo.FORNECEDOR).count(),
+			'total_agricultores': Perfil.objects.filter(
+				usuario__vendedor__isnull=True,
+			).count(),
+			'total_fornecedores': Perfil.objects.filter(
+				usuario__vendedor__isnull=False,
+			).count(),
 			'total_produtos': Produto.objects.count(),
 			'total_pedidos': Pedido.objects.count(),
 			'total_vendas': vendas,

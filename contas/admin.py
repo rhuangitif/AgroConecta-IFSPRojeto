@@ -7,5 +7,5 @@ from .models import Perfil
 class PerfilAdmin(admin.ModelAdmin):
 	list_display = ('usuario', 'tipo', 'telefone', 'cidade', 'estado', 'criado_em')
 	search_fields = ('usuario__username', 'usuario__email', 'usuario__first_name', 'usuario__last_name')
-	list_filter = ('tipo', 'estado', 'criado_em')
+	list_filter = ('estado', 'criado_em')
 	autocomplete_fields = ('usuario',)

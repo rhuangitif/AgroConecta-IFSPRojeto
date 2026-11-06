@@ -20,17 +20,15 @@ class CarrinhoTests(TestCase):
 			username='agricultor@teste.local',
 			password='Senha#2026',
 		)
-		Perfil.objects.create(usuario=self.usuario, tipo=Perfil.Tipo.AGRICULTOR)
+		Perfil.objects.create(usuario=self.usuario)
 		fornecedor_user = User.objects.create_user(username='fornecedor@teste.local')
 		fornecedor = Vendedor.objects.create(
 			usuario=fornecedor_user,
 			empresa='Fornecedor',
-			cnpj='33.333.333/0001-33',
-			email='fornecedor@teste.local',
-			telefone='3',
+			cnpj='12345678000357',
 			endereco='Rua C',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		categoria = Categoria.objects.create(nome='Outros', slug='outros')
 		self.produto = Produto.objects.create(
@@ -82,3 +80,16 @@ class CarrinhoTests(TestCase):
 
 		self.assertContains(response, 'nao aceita fracao')
 		self.assertFalse(Carrinho.objects.filter(usuario=self.usuario).exists())
+
+	def test_total_do_carrinho_e_calculado_dinamicamente(self):
+		self.client.post(
+			reverse('carrinho:adicionar', args=[self.produto.pk]),
+			{'quantidade': 2},
+		)
+		carrinho = Carrinho.objects.get(usuario=self.usuario)
+		self.assertEqual(carrinho.total, Decimal('25.00'))
+		self.assertNotIn('total', {field.name for field in Carrinho._meta.fields})
+
+		self.produto.preco = Decimal('15.00')
+		self.produto.save(update_fields=['preco'])
+		self.assertEqual(carrinho.total, Decimal('30.00'))

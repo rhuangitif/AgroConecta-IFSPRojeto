@@ -28,7 +28,6 @@ class Command(BaseCommand):
             email='agricultor@agroconecta.local',
             nome='Agricultor Demo',
             password=password,
-            tipo=Perfil.Tipo.AGRICULTOR,
             telefone='82999990000',
             cidade='Maceio',
             estado='AL',
@@ -38,7 +37,7 @@ class Command(BaseCommand):
             nome='Fornecedor Verde Demo',
             password=password,
             empresa='Agro Verde Insumos',
-            cnpj='12.345.678/0001-90',
+            cnpj='12.345.678/0001-95',
             telefone='8233334444',
             endereco='Av. das Plantas, 100',
             cidade='Maceio',
@@ -50,7 +49,7 @@ class Command(BaseCommand):
             nome='Fornecedor Campo Demo',
             password=password,
             empresa='Campo Forte Distribuidora',
-            cnpj='98.765.432/0001-10',
+            cnpj='12.345.678/0002-76',
             telefone='8233335555',
             endereco='Rua da Colheita, 200',
             cidade='Arapiraca',
@@ -86,7 +85,7 @@ class Command(BaseCommand):
             categorias.append(categoria)
         return categorias
 
-    def _criar_usuario(self, email, nome, password, tipo, telefone, cidade, estado):
+    def _criar_usuario(self, email, nome, password, telefone, cidade, estado):
         user, created = User.objects.get_or_create(
             username=email,
             defaults={'email': email, 'first_name': nome},
@@ -99,7 +98,6 @@ class Command(BaseCommand):
         Perfil.objects.update_or_create(
             usuario=user,
             defaults={
-                'tipo': tipo,
                 'telefone': telefone,
                 'cidade': cidade,
                 'estado': estado,
@@ -112,7 +110,6 @@ class Command(BaseCommand):
             email=email,
             nome=nome,
             password=password,
-            tipo=Perfil.Tipo.FORNECEDOR,
             telefone=dados['telefone'],
             cidade=dados['cidade'],
             estado=dados['estado'],
@@ -122,11 +119,9 @@ class Command(BaseCommand):
             defaults={
                 'empresa': dados['empresa'],
                 'cnpj': dados['cnpj'],
-                'email': email,
-                'telefone': dados['telefone'],
                 'endereco': dados['endereco'],
-                'cidade': dados['cidade'],
-                'estado': dados['estado'],
+                'cidade_sede': dados['cidade'],
+                'uf_sede': dados['estado'],
                 'descricao': dados['descricao'],
                 'ativo': True,
             },

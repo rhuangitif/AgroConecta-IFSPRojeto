@@ -9,12 +9,22 @@ from django.urls import reverse
 
 from carrinho.models import Carrinho, ItemCarrinho
 from contas.models import Perfil
+from .models import HistoricoStatus
 from produtos.models import Categoria, Produto
 from vendedores.models import Vendedor
 
 from .models import Pedido, PedidoFornecedor
+from .forms import PedidoForm
 
 User = get_user_model()
+
+CHECKOUT_DATA = {
+	'endereco_entrega': 'Rua das Flores, 123',
+	'cidade_entrega': 'Maceio',
+	'estado_entrega': 'AL',
+	'forma_pagamento': Pedido.FormaPagamento.PIX,
+	'observacoes': 'Entregar pela manha',
+}
 
 
 class PedidoTests(TestCase):
@@ -23,21 +33,19 @@ class PedidoTests(TestCase):
 			username='agricultor@teste.local',
 			password='Senha#2026',
 		)
-		Perfil.objects.create(usuario=self.usuario, tipo=Perfil.Tipo.AGRICULTOR)
+		Perfil.objects.create(usuario=self.usuario)
 		fornecedor_user = User.objects.create_user(
 			username='fornecedor@teste.local',
 			password='Senha#2026',
 		)
-		Perfil.objects.create(usuario=fornecedor_user, tipo=Perfil.Tipo.FORNECEDOR)
+		Perfil.objects.create(usuario=fornecedor_user)
 		fornecedor = Vendedor.objects.create(
 			usuario=fornecedor_user,
 			empresa='Fornecedor',
-			cnpj='44.444.444/0001-44',
-			email='fornecedor@teste.local',
-			telefone='4',
+			cnpj='12345678000438',
 			endereco='Rua D',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		self.fornecedor = fornecedor
 		categoria = Categoria.objects.create(nome='Ferramentas', slug='ferramentas')
@@ -57,15 +65,34 @@ class PedidoTests(TestCase):
 			{'quantidade': quantidade},
 		)
 
+	def test_formulario_de_checkout_exige_uf_de_entrega(self):
+		dados = dict(CHECKOUT_DATA, estado_entrega='')
+		form = PedidoForm(data=dados)
+
+		self.assertFalse(form.is_valid())
+		self.assertIn('estado_entrega', form.errors)
+
+	def test_formulario_de_pedido_rejeita_forma_de_pagamento_desconhecida(self):
+		pedido = Pedido(
+			usuario=self.usuario,
+			forma_pagamento='cripto',
+		)
+
+		with self.assertRaises(ValidationError):
+			pedido.full_clean()
+
 	def test_finalizacao_cria_pedido_reduz_estoque_e_limpa_carrinho(self):
 		self.adicionar_ao_carrinho(2)
 
-		response = self.client.post(reverse('pedidos:finalizar'))
+		response = self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 
 		pedido = Pedido.objects.get(usuario=self.usuario)
 		self.produto.refresh_from_db()
 		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
 		self.assertEqual(pedido.valor_total, 50)
+		self.assertEqual(pedido.endereco_entrega, CHECKOUT_DATA['endereco_entrega'])
+		self.assertEqual(pedido.forma_pagamento, Pedido.FormaPagamento.PIX)
+		self.assertEqual(pedido.observacoes, CHECKOUT_DATA['observacoes'])
 		self.assertEqual(pedido.itens.get().preco_unitario, 25)
 		self.assertEqual(pedido.fornecedores.count(), 1)
 		self.assertEqual(pedido.fornecedores.get().itens.count(), 1)
@@ -77,7 +104,7 @@ class PedidoTests(TestCase):
 		self.produto.save(update_fields=['unidade_medida'])
 		self.adicionar_ao_carrinho('0.125')
 
-		response = self.client.post(reverse('pedidos:finalizar'))
+		response = self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 
 		pedido = Pedido.objects.get(usuario=self.usuario)
 		item = pedido.itens.get()
@@ -85,6 +112,8 @@ class PedidoTests(TestCase):
 		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
 		self.assertEqual(item.quantidade, Decimal('0.125'))
 		self.assertEqual(item.subtotal, Decimal('3.13'))
+		self.assertEqual(item.nome_produto, 'Enxada')
+		self.assertEqual(item.unidade_medida, 'kg')
 		self.assertEqual(pedido.valor_total, Decimal('3.13'))
 		self.assertEqual(self.produto.estoque, Decimal('4.875'))
 
@@ -95,15 +124,14 @@ class PedidoTests(TestCase):
 		)
 		Perfil.objects.create(
 			usuario=outro_fornecedor_user,
-			tipo=Perfil.Tipo.FORNECEDOR,
 		)
 		outro_fornecedor = Vendedor.objects.create(
 			usuario=outro_fornecedor_user,
 			empresa='Outro fornecedor',
-			cnpj='33.333.333/0001-91',
+			cnpj='12345678000519',
 			endereco='Rua E',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		outro_produto = Produto.objects.create(
 			nome='Semente',
@@ -119,7 +147,7 @@ class PedidoTests(TestCase):
 			{'quantidade': 2},
 		)
 
-		response = self.client.post(reverse('pedidos:finalizar'))
+		response = self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 
 		pedido = Pedido.objects.get(usuario=self.usuario)
 		self.assertRedirects(response, reverse('pedidos:detalhe', args=[pedido.pk]))
@@ -156,7 +184,7 @@ class PedidoTests(TestCase):
 
 	def test_status_geral_e_derivado_dos_status_dos_fornecedores(self):
 		self.adicionar_ao_carrinho(1)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido = Pedido.objects.get(usuario=self.usuario)
 		pedido_fornecedor = pedido.fornecedores.get()
 		self.assertEqual(pedido.status, Pedido.Status.PENDENTE)
@@ -173,7 +201,7 @@ class PedidoTests(TestCase):
 
 	def test_transicoes_validas_de_status(self):
 		self.adicionar_ao_carrinho(1)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
 
 		for status in (
@@ -187,9 +215,24 @@ class PedidoTests(TestCase):
 				pedido_fornecedor.refresh_from_db()
 				self.assertEqual(pedido_fornecedor.status, status)
 
+	def test_mudanca_de_status_registra_historico_e_autor(self):
+		self.adicionar_ao_carrinho(1)
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
+		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
+
+		pedido_fornecedor.alterar_status(
+			PedidoFornecedor.Status.CONFIRMADO,
+			autor=self.usuario,
+		)
+
+		historico = HistoricoStatus.objects.get(pedido_fornecedor=pedido_fornecedor)
+		self.assertEqual(historico.status_anterior, PedidoFornecedor.Status.PENDENTE)
+		self.assertEqual(historico.status_novo, PedidoFornecedor.Status.CONFIRMADO)
+		self.assertEqual(historico.autor, self.usuario)
+
 	def test_cancelamento_e_permitido_antes_do_envio_e_e_final(self):
 		self.adicionar_ao_carrinho(1)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
 		self.produto.refresh_from_db()
 		self.assertEqual(self.produto.estoque, 4)
@@ -212,7 +255,7 @@ class PedidoTests(TestCase):
 
 	def test_cancelar_pedido_devolve_estoque_uma_unica_vez(self):
 		self.adicionar_ao_carrinho(2)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido = Pedido.objects.get(usuario=self.usuario)
 		self.produto.refresh_from_db()
 		self.assertEqual(self.produto.estoque, 3)
@@ -227,7 +270,7 @@ class PedidoTests(TestCase):
 
 	def test_transicoes_invalidas_e_status_final_sao_rejeitados(self):
 		self.adicionar_ao_carrinho(1)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
 
 		with self.assertRaisesMessage(ValidationError, 'de Pendente para Entregue'):
@@ -245,7 +288,7 @@ class PedidoTests(TestCase):
 
 	def test_view_retorna_erro_amigavel_para_transicao_invalida(self):
 		self.adicionar_ao_carrinho(1)
-		self.client.post(reverse('pedidos:finalizar'))
+		self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		pedido_fornecedor = Pedido.objects.get(usuario=self.usuario).fornecedores.get()
 		pedido_fornecedor.alterar_status(PedidoFornecedor.Status.CONFIRMADO)
 
@@ -269,7 +312,7 @@ class PedidoTests(TestCase):
 		self.produto.estoque = 2
 		self.produto.save(update_fields=['estoque', 'atualizado_em'])
 
-		response = self.client.post(reverse('pedidos:finalizar'), follow=True)
+		response = self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA, follow=True)
 
 		self.assertRedirects(response, reverse('carrinho:ver'))
 		self.assertContains(response, 'Estoque insuficiente')
@@ -285,7 +328,7 @@ class PedidoEstoqueConcorrenciaTests(TransactionTestCase):
 				username=f'agricultor{numero}@teste.local',
 				password='Senha#2026',
 			)
-			Perfil.objects.create(usuario=usuario, tipo=Perfil.Tipo.AGRICULTOR)
+			Perfil.objects.create(usuario=usuario)
 			carrinho = Carrinho.objects.create(usuario=usuario)
 			self.usuarios.append((usuario, carrinho))
 
@@ -293,16 +336,14 @@ class PedidoEstoqueConcorrenciaTests(TransactionTestCase):
 			username='fornecedor@concorrencia.local',
 			password='Senha#2026',
 		)
-		Perfil.objects.create(usuario=fornecedor_user, tipo=Perfil.Tipo.FORNECEDOR)
+		Perfil.objects.create(usuario=fornecedor_user)
 		fornecedor = Vendedor.objects.create(
 			usuario=fornecedor_user,
 			empresa='Fornecedor concorrencia',
-			cnpj='55.555.555/0001-55',
-			email='fornecedor@concorrencia.local',
-			telefone='5',
+			cnpj='12345678000608',
 			endereco='Rua E',
-			cidade='Maceio',
-			estado='AL',
+			cidade_sede='Maceio',
+			uf_sede='AL',
 		)
 		categoria = Categoria.objects.create(nome='Estoque', slug='estoque')
 		self.produto = Produto.objects.create(
@@ -328,7 +369,7 @@ class PedidoEstoqueConcorrenciaTests(TransactionTestCase):
 			username=primeiro_usuario.username,
 			password='Senha#2026',
 		)
-		primeira_resposta = self.client.post(reverse('pedidos:finalizar'))
+		primeira_resposta = self.client.post(reverse('pedidos:finalizar'), CHECKOUT_DATA)
 		self.assertEqual(primeira_resposta.status_code, 302)
 
 		self.client.logout()
@@ -338,6 +379,7 @@ class PedidoEstoqueConcorrenciaTests(TransactionTestCase):
 		)
 		segunda_resposta = self.client.post(
 			reverse('pedidos:finalizar'),
+			CHECKOUT_DATA,
 			follow=True,
 		)
 

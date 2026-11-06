@@ -5,7 +5,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
 
-from produtos.models import Produto, validar_quantidade_unidade
+from contas.choices import UnidadeFederativa
+from produtos.models import Produto, UnidadeMedida, validar_quantidade_unidade
 
 
 class StatusPedidoFornecedor(models.TextChoices):
@@ -72,7 +73,7 @@ class PedidoFornecedor(models.Model):
 	def valor_total(self):
 		return sum(item.subtotal for item in self.itens.all())
 
-	def alterar_status(self, novo_status):
+	def alterar_status(self, novo_status, autor=None):
 		with transaction.atomic():
 			pedido_fornecedor = type(self).objects.select_for_update().get(pk=self.pk)
 			if novo_status not in self.Status.values:
@@ -109,9 +110,36 @@ class PedidoFornecedor(models.Model):
 					produto.save(update_fields=['estoque', 'atualizado_em'])
 
 			pedido_fornecedor.status = novo_status
+			pedido_fornecedor._autor_status = autor
 			pedido_fornecedor.save(update_fields=['status', 'atualizado_em'])
 			self.status = novo_status
 			return True
+
+	def save(self, *args, **kwargs):
+		novo_registro = self._state.adding
+		update_fields = kwargs.get('update_fields')
+		status_sendo_salvo = update_fields is None or 'status' in update_fields
+		with transaction.atomic():
+			status_anterior = None
+			if not novo_registro and status_sendo_salvo:
+				status_anterior = (
+					type(self).objects.select_for_update()
+					.filter(pk=self.pk)
+					.values_list('status', flat=True)
+					.first()
+				)
+			super().save(*args, **kwargs)
+			if (
+				status_anterior is not None
+				and status_sendo_salvo
+				and status_anterior != self.status
+			):
+				HistoricoStatus.objects.create(
+					pedido_fornecedor=self,
+					status_anterior=status_anterior,
+					status_novo=self.status,
+					autor=getattr(self, '_autor_status', None),
+				)
 
 	def __str__(self):
 		return f'{self.pedido} - {self.fornecedor}'
@@ -120,12 +148,31 @@ class PedidoFornecedor(models.Model):
 class Pedido(models.Model):
 	Status = StatusPedidoFornecedor
 
+	class FormaPagamento(models.TextChoices):
+		PIX = 'pix', 'Pix'
+		CARTAO_CREDITO = 'cartao_credito', 'Cartao de credito'
+		CARTAO_DEBITO = 'cartao_debito', 'Cartao de debito'
+		BOLETO = 'boleto', 'Boleto'
+
 	usuario = models.ForeignKey(
 		settings.AUTH_USER_MODEL,
 		on_delete=models.PROTECT,
 		related_name='pedidos',
 	)
-	data = models.DateTimeField(auto_now_add=True)
+	criado_em = models.DateTimeField(auto_now_add=True)
+	endereco_entrega = models.CharField(max_length=255, blank=True)
+	cidade_entrega = models.CharField(max_length=100, blank=True)
+	estado_entrega = models.CharField(
+		max_length=2,
+		choices=UnidadeFederativa.choices,
+		blank=True,
+	)
+	forma_pagamento = models.CharField(
+		max_length=20,
+		choices=FormaPagamento.choices,
+		default=FormaPagamento.PIX,
+	)
+	observacoes = models.TextField(blank=True)
 	valor_total = models.DecimalField(
 		max_digits=22,
 		decimal_places=2,
@@ -140,7 +187,7 @@ class Pedido(models.Model):
 		editable=False,
 	)
 	class Meta:
-		ordering = ('-data',)
+		ordering = ('-criado_em',)
 
 	@property
 	def status(self):
@@ -169,13 +216,16 @@ class Pedido(models.Model):
 		return dict(self.Status.choices).get(self.status, self.status)
 
 	@transaction.atomic
-	def cancelar(self):
+	def cancelar(self, autor=None):
 		pedido = type(self).objects.select_for_update().get(pk=self.pk)
 		fornecedores = pedido.fornecedores.select_for_update().order_by('pk')
 		alterado = False
 		for pedido_fornecedor in fornecedores:
 			alterado = (
-				pedido_fornecedor.alterar_status(self.Status.CANCELADO)
+				pedido_fornecedor.alterar_status(
+					self.Status.CANCELADO,
+					autor=autor,
+				)
 				or alterado
 			)
 		return alterado
@@ -186,6 +236,36 @@ class Pedido(models.Model):
 
 	def __str__(self):
 		return f'Pedido #{self.pk}'
+
+
+class HistoricoStatus(models.Model):
+	pedido_fornecedor = models.ForeignKey(
+		PedidoFornecedor,
+		on_delete=models.CASCADE,
+		related_name='historico_status',
+	)
+	status_anterior = models.CharField(
+		max_length=20,
+		choices=StatusPedidoFornecedor.choices,
+	)
+	status_novo = models.CharField(
+		max_length=20,
+		choices=StatusPedidoFornecedor.choices,
+	)
+	autor = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='alteracoes_status_pedidos',
+	)
+	criado_em = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ('criado_em', 'pk')
+
+	def __str__(self):
+		return f'{self.pedido_fornecedor}: {self.status_anterior} -> {self.status_novo}'
 
 
 class PedidoItem(models.Model):
@@ -205,6 +285,8 @@ class PedidoItem(models.Model):
 		on_delete=models.PROTECT,
 		related_name='itens_pedido',
 	)
+	nome_produto = models.CharField(max_length=160)
+	unidade_medida = models.CharField(max_length=10, choices=UnidadeMedida.choices)
 	quantidade = models.DecimalField(
 		max_digits=10,
 		decimal_places=3,
@@ -236,6 +318,11 @@ class PedidoItem(models.Model):
 	def save(self, *args, **kwargs):
 		if not self.pedido_legado_id and self.pedido_fornecedor_id:
 			self.pedido_legado_id = self.pedido_fornecedor.pedido_id
+		if self._state.adding:
+			if not self.nome_produto:
+				self.nome_produto = self.produto.nome
+			if not self.unidade_medida:
+				self.unidade_medida = self.produto.unidade_medida
 		self.subtotal = (
 			Decimal(str(self.preco_unitario)) * Decimal(str(self.quantidade))
 		).quantize(

@@ -11,12 +11,20 @@ from produtos.models import Produto
 
 from carrinho.models import Carrinho
 
+from .forms import PedidoForm
 from .models import Pedido, PedidoFornecedor, PedidoItem
 
 
 @agricultor_required
 @require_POST
 def finalizar_pedido(request):
+	form = PedidoForm(request.POST)
+	if not form.is_valid():
+		for erros in form.errors.values():
+			for erro in erros:
+				messages.error(request, erro)
+		return redirect('carrinho:ver')
+
 	with transaction.atomic():
 		carrinho = get_object_or_404(
 			Carrinho.objects.select_for_update(),
@@ -51,7 +59,9 @@ def finalizar_pedido(request):
 				)
 				return redirect('carrinho:ver')
 
-		pedido = Pedido.objects.create(usuario=request.user)
+		pedido = form.save(commit=False)
+		pedido.usuario = request.user
+		pedido.save()
 		total = Decimal('0.00')
 		pedidos_fornecedor = {}
 		for item in itens:
@@ -69,6 +79,8 @@ def finalizar_pedido(request):
 				produto=produto,
 				quantidade=item.quantidade,
 				preco_unitario=produto.preco,
+				nome_produto=produto.nome,
+				unidade_medida=produto.unidade_medida,
 			)
 			pedido_item.full_clean()
 			pedido_item.save()
@@ -87,7 +99,7 @@ def finalizar_pedido(request):
 def meus_pedidos(request):
 	pedidos = Pedido.objects.filter(usuario=request.user).prefetch_related(
 		'fornecedores__itens__produto',
-	).order_by('-data')
+	).order_by('-criado_em')
 	return render(request, 'pedidos/meus_pedidos.html', {'pedidos': pedidos})
 
 
@@ -125,7 +137,10 @@ def atualizar_status(request, pk):
 			fornecedor=request.user.vendedor,
 		)
 		try:
-			pedido_fornecedor.alterar_status(request.POST.get('status'))
+			pedido_fornecedor.alterar_status(
+				request.POST.get('status'),
+				autor=request.user,
+			)
 		except ValidationError as erro:
 			messages.error(
 				request,

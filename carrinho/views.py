@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from contas.decorators import agricultor_required
+from pedidos.forms import PedidoForm
 from produtos.models import Produto, validar_quantidade_unidade
 
 from .forms import QuantidadeForm
@@ -25,7 +26,16 @@ def _form_quantidade(request, unidade_medida):
 def ver_carrinho(request):
 	carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
 	itens = carrinho.itens.select_related('produto', 'produto__fornecedor').order_by('adicionado_em')
-	return render(request, 'carrinho/ver.html', {'carrinho': carrinho, 'itens': itens})
+	perfil = getattr(request.user, 'perfil', None)
+	form = PedidoForm(initial={
+		'cidade_entrega': perfil.cidade if perfil else '',
+		'estado_entrega': perfil.estado if perfil else '',
+	})
+	return render(
+		request,
+		'carrinho/ver.html',
+		{'carrinho': carrinho, 'itens': itens, 'pedido_form': form},
+	)
 
 
 @agricultor_required
