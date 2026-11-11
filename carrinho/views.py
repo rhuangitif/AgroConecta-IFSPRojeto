@@ -53,7 +53,7 @@ def adicionar(request, produto_id):
 			return redirect('produtos:detalhe', produto_id)
 		quantidade = form.cleaned_data['quantidade']
 		if produto.estoque < quantidade:
-			messages.error(request, 'A quantidade solicitada excede o estoque disponivel.')
+			messages.error(request, 'A quantidade solicitada excede o estoque disponível.')
 			return redirect('produtos:detalhe', produto_id)
 		carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
 		item, criado = ItemCarrinho.objects.select_for_update().get_or_create(
@@ -69,7 +69,7 @@ def adicionar(request, produto_id):
 				messages.error(request, erro.messages[0])
 				return redirect('produtos:detalhe', produto_id)
 			if nova_quantidade > produto.estoque:
-				messages.error(request, 'A quantidade total no carrinho excede o estoque disponivel.')
+				messages.error(request, 'A quantidade total no carrinho excede o estoque disponível.')
 				return redirect('produtos:detalhe', produto_id)
 			item.quantidade = nova_quantidade
 			try:
@@ -98,7 +98,7 @@ def atualizar(request, item_id):
 			return redirect('carrinho:ver')
 		quantidade = form.cleaned_data['quantidade']
 		if quantidade > produto.estoque:
-			messages.error(request, f'O estoque disponivel e {produto.estoque}.')
+			messages.error(request, f'O estoque disponível é {produto.estoque}.')
 			return redirect('carrinho:ver')
 		item.quantidade = quantidade
 		try:

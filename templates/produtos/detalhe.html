@@ -15,7 +15,7 @@
             <p class="text-muted"><i class="fa-solid fa-store me-2"></i>{{ produto.fornecedor.empresa }}</p>
             <p class="lead">{{ produto.descricao }}</p>
             <div class="border-top border-bottom py-3 my-4"><span class="display-6 text-success">R$ {{ produto.preco }}</span><span class="text-muted"> por {{ produto.get_unidade_medida_display }}</span></div>
-            <p class="mb-4"><strong>Estoque:</strong> {% if produto.estoque > 0 %}{{ produto.estoque }} {{ produto.get_unidade_medida_display }} disponivel(is){% else %}Esgotado{% endif %}</p>
+            <p class="mb-4"><strong>Estoque:</strong> {% if produto.estoque > 0 %}{{ produto.estoque }} {{ produto.get_unidade_medida_display }} disponível(is){% else %}Esgotado{% endif %}</p>
             {% if produto.estoque > 0 %}
                 {% if user.is_authenticated %}
                     <form method="post" action="{% url 'carrinho:adicionar' produto.pk %}" class="d-flex gap-2 align-items-end">

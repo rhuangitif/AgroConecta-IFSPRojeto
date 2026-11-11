@@ -170,7 +170,7 @@ body {
 }
 
 @media (max-width: 575.98px) {
-    .container { --bs-gutter-x: 1.35rem; }
+    .container { --bs-gutter-x: 1.5rem; }
 
     .display-6 { font-size: 1.85rem; }
 

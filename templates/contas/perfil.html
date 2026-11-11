@@ -6,7 +6,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <p class="text-success fw-semibold mb-1">Minha conta</p>
-            <h1 class="h2 mb-1">Ola, {{ user.first_name|default:user.username }}</h1>
+            <h1 class="h2 mb-1">Olá, {{ user.first_name|default:user.username }}</h1>
             <p class="text-muted mb-0">Gerencie seus dados no AgroConecta.</p>
         </div>
         <a class="btn btn-agro" href="{% url 'contas:editar_perfil' %}"><i class="fa-solid fa-pen-to-square me-2"></i>Editar perfil</a>
@@ -20,8 +20,8 @@
                         <dt class="col-sm-4 text-muted">Nome</dt><dd class="col-sm-8">{{ user.get_full_name|default:user.username }}</dd>
                         <dt class="col-sm-4 text-muted">Email</dt><dd class="col-sm-8">{{ user.email }}</dd>
                         <dt class="col-sm-4 text-muted">Tipo</dt><dd class="col-sm-8">{{ perfil_usuario.get_tipo_display|default:'Administrador' }}</dd>
-                        <dt class="col-sm-4 text-muted">Telefone</dt><dd class="col-sm-8">{{ perfil_usuario.telefone|default:'Nao informado' }}</dd>
-                        <dt class="col-sm-4 text-muted">Localizacao</dt><dd class="col-sm-8">{% if perfil_usuario %}{{ perfil_usuario.cidade }} - {{ perfil_usuario.estado }}{% else %}Nao informada{% endif %}</dd>
+                        <dt class="col-sm-4 text-muted">Telefone</dt><dd class="col-sm-8">{{ perfil_usuario.telefone|default:'Não informado' }}</dd>
+                        <dt class="col-sm-4 text-muted">Localização</dt><dd class="col-sm-8">{% if perfil_usuario %}{{ perfil_usuario.cidade }} - {{ perfil_usuario.estado }}{% else %}Não informada{% endif %}</dd>
                     </dl>
                 </div>
             </div>
@@ -32,9 +32,9 @@
                 <div class="card-body p-4">
                     <h2 class="h5 mb-4"><i class="fa-solid fa-store text-success me-2"></i>Empresa fornecedora</h2>
                     <h3 class="h4">{{ vendedor.empresa }}</h3>
-                    <p class="text-muted">{{ vendedor.descricao|default:'Adicione uma descricao para sua empresa.' }}</p>
+                    <p class="text-muted">{{ vendedor.descricao|default:'Adicione uma descrição para sua empresa.' }}</p>
                     <p class="mb-2"><strong>CNPJ:</strong> {{ vendedor.cnpj|cnpj_formatado }}</p>
-                    <p class="mb-0"><strong>Endereco da sede:</strong> {{ vendedor.endereco }}, {{ vendedor.cidade_sede }} - {{ vendedor.uf_sede }}</p>
+                    <p class="mb-0"><strong>Endereço da sede:</strong> {{ vendedor.endereco }}, {{ vendedor.cidade_sede }} - {{ vendedor.uf_sede }}</p>
                 </div>
             </div>
         </div>

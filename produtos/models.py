@@ -34,16 +34,16 @@ def validar_quantidade_unidade(quantidade, unidade, permitir_zero=False):
 	try:
 		valor = Decimal(quantidade)
 	except (TypeError, ValueError):
-		raise ValidationError('Informe uma quantidade valida.') from None
+		raise ValidationError('Informe uma quantidade válida.') from None
 
 	if valor < 0 or (valor == 0 and not permitir_zero):
 		raise ValidationError('A quantidade deve ser maior que zero.')
 	if valor.as_tuple().exponent < -3:
-		raise ValidationError('A quantidade aceita no maximo tres casas decimais.')
+		raise ValidationError('A quantidade aceita no máximo três casas decimais.')
 	if unidade in UNIDADES_INTEIRAS and valor != valor.to_integral_value():
 		nome_unidade = dict(UnidadeMedida.choices).get(unidade, unidade)
 		raise ValidationError(
-			f'A unidade de medida {nome_unidade.lower()} nao aceita fracao.'
+			f'A unidade de medida {nome_unidade.lower()} não aceita fração.'
 		)
 
 

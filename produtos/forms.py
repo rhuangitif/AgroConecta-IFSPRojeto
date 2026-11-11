@@ -19,6 +19,16 @@ class ProdutoForm(BootstrapFieldsMixin, forms.ModelForm):
             'imagem',
             'ativo',
         )
+        labels = {
+            'nome': 'Nome',
+            'descricao': 'Descrição',
+            'categoria': 'Categoria',
+            'preco': 'Preço',
+            'estoque': 'Estoque',
+            'unidade_medida': 'Unidade de medida',
+            'imagem': 'Imagem',
+            'ativo': 'Ativo',
+        }
         widgets = {
             'descricao': forms.Textarea(attrs={'rows': 5}),
             'preco': forms.NumberInput(attrs={'min': '0', 'step': '0.01'}),
@@ -47,20 +57,20 @@ class CatalogoFiltroForm(BootstrapFieldsMixin, forms.Form):
         label='Categoria', queryset=Categoria.objects.filter(ativa=True), required=False,
     )
     fornecedor = forms.ChoiceField(label='Fornecedor', required=False)
-    preco_min = forms.DecimalField(label='Preco minimo', min_value=0, required=False)
-    preco_max = forms.DecimalField(label='Preco maximo', min_value=0, required=False)
+    preco_min = forms.DecimalField(label='Preço mínimo', min_value=0, required=False)
+    preco_max = forms.DecimalField(label='Preço máximo', min_value=0, required=False)
     disponibilidade = forms.ChoiceField(
         label='Disponibilidade',
         required=False,
-        choices=(('', 'Todos'), ('disponivel', 'Disponiveis'), ('indisponivel', 'Indisponiveis')),
+        choices=(('', 'Todos'), ('disponivel', 'Disponíveis'), ('indisponivel', 'Indisponíveis')),
     )
     ordem = forms.ChoiceField(
         label='Ordenar por',
         required=False,
         choices=(
             ('recente', 'Mais recentes'),
-            ('menor_preco', 'Menor preco'),
-            ('maior_preco', 'Maior preco'),
+            ('menor_preco', 'Menor preço'),
+            ('maior_preco', 'Maior preço'),
             ('mais_vendidos', 'Mais vendidos'),
             ('nome', 'Nome'),
         ),

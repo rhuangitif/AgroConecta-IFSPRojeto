@@ -150,8 +150,8 @@ class Pedido(models.Model):
 
 	class FormaPagamento(models.TextChoices):
 		PIX = 'pix', 'Pix'
-		CARTAO_CREDITO = 'cartao_credito', 'Cartao de credito'
-		CARTAO_DEBITO = 'cartao_debito', 'Cartao de debito'
+		CARTAO_CREDITO = 'cartao_credito', 'Cartão de crédito'
+		CARTAO_DEBITO = 'cartao_debito', 'Cartão de débito'
 		BOLETO = 'boleto', 'Boleto'
 
 	usuario = models.ForeignKey(

@@ -32,7 +32,7 @@ def finalizar_pedido(request):
 		)
 		itens = list(carrinho.itens.select_for_update().select_related('produto'))
 		if not itens:
-			messages.error(request, 'Seu carrinho esta vazio.')
+			messages.error(request, 'Seu carrinho está vazio.')
 			return redirect('carrinho:ver')
 
 		produto_ids = sorted({item.produto_id for item in itens})

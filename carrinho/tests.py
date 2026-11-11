@@ -78,7 +78,7 @@ class CarrinhoTests(TestCase):
 			follow=True,
 		)
 
-		self.assertContains(response, 'nao aceita fracao')
+		self.assertContains(response, 'não aceita fração')
 		self.assertFalse(Carrinho.objects.filter(usuario=self.usuario).exists())
 
 	def test_total_do_carrinho_e_calculado_dinamicamente(self):

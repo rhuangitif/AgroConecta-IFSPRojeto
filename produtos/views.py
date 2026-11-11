@@ -124,5 +124,5 @@ def produto_editar(request, pk):
 def produto_excluir(request, pk):
 	produto = get_object_or_404(Produto, pk=pk, fornecedor=request.user.vendedor)
 	produto.delete()
-	messages.success(request, 'Produto excluido com sucesso.')
+	messages.success(request, 'Produto excluído com sucesso.')
 	return redirect('produtos:meus_produtos')

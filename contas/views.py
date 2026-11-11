@@ -44,7 +44,7 @@ def login_view(request):
 @require_POST
 def logout_view(request):
 	logout(request)
-	messages.success(request, 'Voce saiu da sua conta.')
+	messages.success(request, 'Você saiu da sua conta.')
 	return redirect('contas:login')
 
 

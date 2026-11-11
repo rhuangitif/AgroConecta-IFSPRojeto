@@ -6,14 +6,14 @@ from django.core.exceptions import ValidationError
 def normalizar_cnpj(valor):
 	valor = str(valor or '').strip()
 	if any(char not in '0123456789./- ' for char in valor):
-		raise ValidationError('Informe um CNPJ contendo apenas numeros e formatacao.')
+		raise ValidationError('Informe um CNPJ contendo apenas números e formatação.')
 	return re.sub(r'\D', '', valor)
 
 
 def validar_cnpj(valor):
 	cnpj = normalizar_cnpj(valor)
 	if len(cnpj) != 14 or len(set(cnpj)) == 1:
-		raise ValidationError('Informe um CNPJ valido com 14 digitos.')
+		raise ValidationError('Informe um CNPJ válido com 14 dígitos.')
 
 	def calcular_digito(base, pesos):
 		resto = sum(int(digito) * peso for digito, peso in zip(base, pesos)) % 11
@@ -24,7 +24,7 @@ def validar_cnpj(valor):
 	primeiro = calcular_digito(cnpj[:12], pesos_primeiro)
 	segundo = calcular_digito(cnpj[:12] + primeiro, pesos_segundo)
 	if cnpj[-2:] != primeiro + segundo:
-		raise ValidationError('O digito verificador do CNPJ e invalido.')
+		raise ValidationError('O dígito verificador do CNPJ é inválido.')
 	return cnpj
 
 

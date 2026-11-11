@@ -152,7 +152,7 @@ class RecomendacoesTests(TestCase):
 		self.assertEqual(list(recomendados), [produto])
 		self.client.force_login(self.agricultor)
 		response = self.client.get(reverse('recomendacoes:painel'))
-		self.assertContains(response, 'Fallback: produtos disponiveis')
+		self.assertContains(response, 'Alternativa: produtos disponíveis')
 		self.assertContains(response, 'ainda sem vendas registradas')
 
 	def test_painel_nao_mostra_produto_sem_vendas_como_recomendacao_historica(self):

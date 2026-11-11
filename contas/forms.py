@@ -20,12 +20,23 @@ class BootstrapFieldsMixin:
                 field.widget.attrs.setdefault('class', 'form-check-input')
             elif isinstance(field.widget, forms.Select):
                 field.widget.attrs.setdefault('class', 'form-select')
+                if isinstance(field, forms.ModelChoiceField):
+                    if field.empty_label is not None:
+                        field.empty_label = 'Selecione uma opção'
+                elif field.required:
+                    choices = list(field.choices)
+                    if choices and choices[0][0] == '':
+                        if choices[0][1] == '---------':
+                            choices[0] = ('', 'Selecione uma opção')
+                    else:
+                        choices.insert(0, ('', 'Selecione uma opção'))
+                    field.choices = choices
             else:
                 field.widget.attrs.setdefault('class', 'form-control')
 
 
 class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
-    username = forms.EmailField(label='Email')
+    username = forms.EmailField(label='E-mail')
     first_name = forms.CharField(label='Nome', max_length=150)
     tipo = forms.ChoiceField(label='Tipo de conta', choices=Perfil.Tipo.choices)
     telefone = forms.CharField(label='Telefone', max_length=20)
@@ -33,8 +44,8 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
     estado = forms.ChoiceField(label='Estado', choices=UnidadeFederativa.choices)
     empresa = forms.CharField(label='Nome da empresa', max_length=150, required=False)
     cnpj = forms.CharField(label='CNPJ', max_length=18, required=False)
-    endereco = forms.CharField(label='Endereco', max_length=255, required=False)
-    descricao = forms.CharField(label='Descricao', widget=forms.Textarea, required=False)
+    endereco = forms.CharField(label='Endereço', max_length=255, required=False)
+    descricao = forms.CharField(label='Descrição', widget=forms.Textarea, required=False)
 
     class Meta:
         model = User
@@ -56,7 +67,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
     def clean_username(self):
         email = self.cleaned_data['username'].lower()
         if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError('Ja existe uma conta com este email.')
+            raise forms.ValidationError('Já existe uma conta com este e-mail.')
         return email
 
     def clean_cnpj(self):
@@ -66,7 +77,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
         cnpj = normalizar_cnpj(valor)
         validar_cnpj(cnpj)
         if Vendedor.objects.filter(cnpj=cnpj).exists():
-            raise forms.ValidationError('Ja existe um fornecedor com este CNPJ.')
+            raise forms.ValidationError('Já existe um fornecedor com este CNPJ.')
         return cnpj
 
     def clean(self):
@@ -74,7 +85,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
         if cleaned_data.get('tipo') == Perfil.Tipo.FORNECEDOR:
             for field in ('empresa', 'cnpj', 'endereco'):
                 if not cleaned_data.get(field):
-                    self.add_error(field, 'Este campo e obrigatorio para fornecedores.')
+                    self.add_error(field, 'Este campo é obrigatório para fornecedores.')
         return cleaned_data
 
     @transaction.atomic
@@ -108,7 +119,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
 
 
 class LoginForm(BootstrapFieldsMixin, AuthenticationForm):
-    username = forms.EmailField(label='Email')
+    username = forms.EmailField(label='E-mail')
 
 
 class UsuarioForm(BootstrapFieldsMixin, UserChangeForm):
@@ -117,11 +128,16 @@ class UsuarioForm(BootstrapFieldsMixin, UserChangeForm):
     class Meta:
         model = User
         fields = ('first_name', 'last_name', 'email')
+        labels = {
+            'first_name': 'Nome',
+            'last_name': 'Sobrenome',
+            'email': 'E-mail',
+        }
 
     def clean_email(self):
         email = self.cleaned_data['email'].lower()
         if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError('Ja existe uma conta com este email.')
+            raise forms.ValidationError('Já existe uma conta com este e-mail.')
         return email
 
 
@@ -129,6 +145,11 @@ class PerfilForm(BootstrapFieldsMixin, forms.ModelForm):
     class Meta:
         model = Perfil
         fields = ('telefone', 'cidade', 'estado')
+        labels = {
+            'telefone': 'Telefone',
+            'cidade': 'Cidade',
+            'estado': 'Estado',
+        }
 
 class VendedorForm(BootstrapFieldsMixin, forms.ModelForm):
     cnpj = forms.CharField(label='CNPJ', max_length=18)
@@ -143,6 +164,20 @@ class VendedorForm(BootstrapFieldsMixin, forms.ModelForm):
             'uf_sede',
             'descricao',
         )
+        labels = {
+            'empresa': 'Nome da empresa',
+            'endereco': 'Endereço',
+            'cidade_sede': 'Cidade da sede',
+            'uf_sede': 'Estado da sede',
+            'descricao': 'Descrição',
+        }
+        labels = {
+            'empresa': 'Nome da empresa',
+            'endereco': 'Endereço',
+            'cidade_sede': 'Cidade da sede',
+            'uf_sede': 'Estado da sede',
+            'descricao': 'Descrição',
+        }
 
     def clean_cnpj(self):
         cnpj = normalizar_cnpj(self.cleaned_data['cnpj'])
@@ -150,5 +185,5 @@ class VendedorForm(BootstrapFieldsMixin, forms.ModelForm):
         if cnpj != cnpj_anterior:
             validar_cnpj(cnpj)
             if Vendedor.objects.filter(cnpj=cnpj).exclude(pk=self.instance.pk).exists():
-                raise forms.ValidationError('Ja existe um fornecedor com este CNPJ.')
+                raise forms.ValidationError('Já existe um fornecedor com este CNPJ.')
         return cnpj

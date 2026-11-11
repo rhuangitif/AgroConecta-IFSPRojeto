@@ -6,7 +6,7 @@ from .models import Pedido
 
 
 class PedidoForm(BootstrapFieldsMixin, forms.ModelForm):
-	endereco_entrega = forms.CharField(label='Endereco de entrega', max_length=255)
+	endereco_entrega = forms.CharField(label='Endereço de entrega', max_length=255)
 	cidade_entrega = forms.CharField(label='Cidade', max_length=100)
 	estado_entrega = forms.ChoiceField(
 		label='Estado',
@@ -24,4 +24,8 @@ class PedidoForm(BootstrapFieldsMixin, forms.ModelForm):
 		)
 		widgets = {
 			'observacoes': forms.Textarea(attrs={'rows': 3}),
+		}
+		labels = {
+			'forma_pagamento': 'Forma de pagamento',
+			'observacoes': 'Observações',
 		}

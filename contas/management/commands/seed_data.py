@@ -11,13 +11,13 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Cria categorias, usuarios, fornecedores e produtos de demonstracao.'
+    help = 'Cria categorias, usuários, fornecedores e produtos de demonstração.'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--password',
             default='AgroConecta#2026',
-            help='Senha das contas de teste criadas pelo comando.',
+            help='Senha das contas demonstrativas criadas pelo comando.',
         )
 
     @transaction.atomic
@@ -29,7 +29,7 @@ class Command(BaseCommand):
             nome='Agricultor Demo',
             password=password,
             telefone='82999990000',
-            cidade='Maceio',
+            cidade='Maceió',
             estado='AL',
         )
         fornecedor_a = self._criar_fornecedor(
@@ -40,9 +40,9 @@ class Command(BaseCommand):
             cnpj='12.345.678/0001-95',
             telefone='8233334444',
             endereco='Av. das Plantas, 100',
-            cidade='Maceio',
+            cidade='Maceió',
             estado='AL',
-            descricao='Insumos para pequenos produtores.',
+            descricao='Insumos agrícolas selecionados para pequenos produtores.',
         )
         fornecedor_b = self._criar_fornecedor(
             email='fornecedor.campo@agroconecta.local',
@@ -54,18 +54,18 @@ class Command(BaseCommand):
             endereco='Rua da Colheita, 200',
             cidade='Arapiraca',
             estado='AL',
-            descricao='Solucoes para cultivo e manejo.',
+            descricao='Soluções para cultivo, nutrição e manejo agrícola.',
         )
         administrador = self._criar_administrador(password)
         produtos = self._criar_produtos(categorias, fornecedor_a, fornecedor_b)
 
-        self.stdout.write(self.style.SUCCESS('Seed concluido com sucesso.'))
+        self.stdout.write(self.style.SUCCESS('Dados demonstrativos atualizados com sucesso.'))
         self.stdout.write(f'Categorias: {len(categorias)}')
-        self.stdout.write('Usuarios: agricultor@agroconecta.local, fornecedor.verde@agroconecta.local, fornecedor.campo@agroconecta.local')
+        self.stdout.write('Usuários: agricultor@agroconecta.local, fornecedor.verde@agroconecta.local, fornecedor.campo@agroconecta.local')
         self.stdout.write(f'Administrador: {administrador.username}')
-        self.stdout.write(f'Produtos criados ou atualizados: {produtos}')
+        self.stdout.write(f'Produtos criados: {produtos}')
         self.stdout.write('Pedidos criados: 0')
-        self.stdout.write(f'Senha das contas de teste: {password}')
+        self.stdout.write(f'Senha das contas demonstrativas: {password}')
 
     def _criar_categorias(self):
         nomes = (
@@ -75,6 +75,7 @@ class Command(BaseCommand):
             'Ferramentas',
             'Equipamentos',
             'Outros',
+            'Rações',
         )
         categorias = []
         for nome in nomes:
@@ -148,13 +149,25 @@ class Command(BaseCommand):
 
     def _criar_produtos(self, categorias, fornecedor_a, fornecedor_b):
         por_nome = {categoria.nome: categoria for categoria in categorias}
+        for fornecedor in (fornecedor_a, fornecedor_b):
+            Produto.objects.filter(
+                fornecedor=fornecedor,
+                nome='Fertilizante Organico',
+            ).update(nome='Fertilizante Orgânico')
+            Produto.objects.filter(
+                fornecedor=fornecedor,
+                nome='Enxada Reforcada',
+            ).update(nome='Enxada Reforçada')
         produtos = (
-            ('Semente de Milho', 'Sementes', fornecedor_a, 'Sementes selecionadas de milho para cultivo.', '45.00', 80, 'saco'),
-            ('Semente de Milho', 'Sementes', fornecedor_b, 'Sementes de milho para diferentes ciclos.', '42.50', 55, 'saco'),
-            ('Fertilizante NPK', 'Fertilizantes', fornecedor_a, 'Formula NPK para reforco nutricional.', '125.90', 30, 'saco'),
-            ('Fertilizante Organico', 'Fertilizantes', fornecedor_b, 'Fertilizante organico para manejo do solo.', '98.00', 24, 'saco'),
-            ('Pulverizador Manual', 'Equipamentos', fornecedor_a, 'Pulverizador manual para pequenas areas.', '189.90', 12, 'un'),
-            ('Enxada Reforcada', 'Ferramentas', fornecedor_b, 'Ferramenta reforcada para preparo do solo.', '79.90', 18, 'un'),
+            ('Semente de Milho', 'Sementes', fornecedor_a, 'Sementes híbridas de milho para plantio comercial, vendidas em saco.', '289.90', 18, 'saco'),
+            ('Semente de Milho', 'Sementes', fornecedor_b, 'Sementes selecionadas de milho para diferentes ciclos de cultivo.', '249.90', 24, 'saco'),
+            ('Fertilizante NPK', 'Fertilizantes', fornecedor_a, 'Adubo granulado NPK 10-10-10, embalagem de 50 kg.', '189.90', 35, 'saco'),
+            ('Fertilizante Orgânico', 'Fertilizantes', fornecedor_b, 'Composto orgânico para preparo e melhoria do solo, saco de 20 kg.', '49.90', 42, 'saco'),
+            ('Ração para aves de postura', 'Rações', fornecedor_b, 'Ração completa para aves poedeiras, embalagem de 20 kg.', '86.90', 38, 'saco'),
+            ('Defensivo biológico para lagartas', 'Defensivos', fornecedor_a, 'Produto biológico para manejo de lagartas, frasco de 1 litro.', '74.90', 16, 'litro'),
+            ('Óleo mineral agrícola', 'Defensivos', fornecedor_b, 'Óleo mineral para uso agrícola, embalagem de 1 litro.', '39.90', 28, 'litro'),
+            ('Pulverizador Manual', 'Equipamentos', fornecedor_a, 'Pulverizador manual de 16 litros para aplicação em pequenas áreas.', '189.90', 12, 'un'),
+            ('Enxada Reforçada', 'Ferramentas', fornecedor_b, 'Enxada de aço reforçado para preparo manual do solo.', '79.90', 18, 'un'),
         )
         criados = 0
         for nome, categoria, fornecedor, descricao, preco, estoque, unidade in produtos:

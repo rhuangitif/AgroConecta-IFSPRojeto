@@ -14,7 +14,7 @@ def perfil_required(tipo):
         def wrapped_view(request, *args, **kwargs):
             perfil = getattr(request.user, 'perfil', None)
             if not perfil or perfil.tipo != tipo:
-                messages.error(request, 'Voce nao tem permissao para acessar esta area.')
+                messages.error(request, 'Você não tem permissão para acessar esta área.')
                 return redirect('contas:perfil')
             return view_func(request, *args, **kwargs)
 
