@@ -13,30 +13,33 @@
                     <form method="post" novalidate>
                         {% csrf_token %}
                         <h2 class="h5 mb-3">Dados de acesso</h2>
+                        {% if user_form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ user_form.non_field_errors }}</div>{% endif %}
                         <div class="row g-3 mb-4">
                             {% for field in user_form %}
                                 <div class="col-md-6">
                                     {{ field.label_tag }}{{ field }}
-                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                    {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block" role="alert">{{ error }}</div>{% endfor %}
                                 </div>
                             {% endfor %}
                         </div>
                         <h2 class="h5 mb-3">Dados pessoais</h2>
+                        {% if perfil_form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ perfil_form.non_field_errors }}</div>{% endif %}
                         <div class="row g-3 mb-4">
                             {% for field in perfil_form %}
                                 <div class="col-md-6">
                                     {{ field.label_tag }}{{ field }}
-                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                    {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block" role="alert">{{ error }}</div>{% endfor %}
                                 </div>
                             {% endfor %}
                         </div>
                         {% if vendedor_form %}
                             <h2 class="h5 mb-3">Dados da empresa</h2>
+                            {% if vendedor_form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ vendedor_form.non_field_errors }}</div>{% endif %}
                             <div class="row g-3 mb-4">
                                 {% for field in vendedor_form %}
                                     <div class="col-md-6">
                                         {{ field.label_tag }}{{ field }}
-                                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                        {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block" role="alert">{{ error }}</div>{% endfor %}
                                     </div>
                                 {% endfor %}
                             </div>

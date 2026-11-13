@@ -34,6 +34,17 @@ class BootstrapFieldsMixin:
             else:
                 field.widget.attrs.setdefault('class', 'form-control')
 
+    def full_clean(self):
+        super().full_clean()
+        for name, field in self.fields.items():
+            if self._errors.get(name):
+                classes = field.widget.attrs.get('class', '').split()
+                if 'is-invalid' not in classes:
+                    classes.append('is-invalid')
+                field.widget.attrs['class'] = ' '.join(classes)
+                field.widget.attrs['aria-invalid'] = 'true'
+                field.widget.attrs['aria-describedby'] = f'id_{name}_errors'
+
 
 class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
     username = forms.EmailField(label='E-mail')
@@ -64,15 +75,23 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
             'password2',
         )
 
+    error_messages = {
+        **UserCreationForm.error_messages,
+        'password_mismatch': 'As senhas informadas não coincidem.',
+    }
+
     def clean_username(self):
         email = self.cleaned_data['username'].lower()
-        if User.objects.filter(email__iexact=email).exists():
+        if (
+            User.objects.filter(email__iexact=email).exists()
+            or User.objects.filter(username__iexact=email).exists()
+        ):
             raise forms.ValidationError('Já existe uma conta com este e-mail.')
         return email
 
     def clean_cnpj(self):
         valor = self.cleaned_data.get('cnpj', '')
-        if not valor:
+        if not valor or self.cleaned_data.get('tipo') != Perfil.Tipo.FORNECEDOR:
             return ''
         cnpj = normalizar_cnpj(valor)
         validar_cnpj(cnpj)
@@ -121,6 +140,19 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
 class LoginForm(BootstrapFieldsMixin, AuthenticationForm):
     username = forms.EmailField(label='E-mail')
 
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        'invalid_login': 'E-mail ou senha incorretos.',
+        'inactive': 'Esta conta está inativa.',
+    }
+
+    def clean(self):
+        try:
+            return super().clean()
+        except forms.ValidationError as error:
+            self.add_error('password', error)
+            return self.cleaned_data
+
 
 class UsuarioForm(BootstrapFieldsMixin, UserChangeForm):
     password = None
@@ -136,9 +168,23 @@ class UsuarioForm(BootstrapFieldsMixin, UserChangeForm):
 
     def clean_email(self):
         email = self.cleaned_data['email'].lower()
-        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+        usuarios_com_email = User.objects.filter(email__iexact=email).exclude(
+            pk=self.instance.pk,
+        )
+        usuarios_com_nome = User.objects.filter(username__iexact=email).exclude(
+            pk=self.instance.pk,
+        )
+        if usuarios_com_email.exists() or usuarios_com_nome.exists():
             raise forms.ValidationError('Já existe uma conta com este e-mail.')
         return email
+
+    def save(self, commit=True):
+        usuario = super().save(commit=False)
+        usuario.username = self.cleaned_data['email']
+        if commit:
+            usuario.save()
+            self.save_m2m()
+        return usuario
 
 
 class PerfilForm(BootstrapFieldsMixin, forms.ModelForm):

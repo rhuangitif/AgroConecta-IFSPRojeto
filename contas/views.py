@@ -65,7 +65,8 @@ def editar_perfil(request):
 	perfil_usuario = getattr(request.user, 'perfil', None)
 	vendedor = getattr(request.user, 'vendedor', None)
 	user_form = UsuarioForm(request.POST or None, instance=request.user)
-	perfil_form = PerfilForm(request.POST or None, instance=perfil_usuario)
+	perfil_instance = perfil_usuario or Perfil(usuario=request.user)
+	perfil_form = PerfilForm(request.POST or None, instance=perfil_instance)
 	vendedor_form = None
 	if perfil_usuario and perfil_usuario.tipo == Perfil.Tipo.FORNECEDOR and vendedor:
 		vendedor_form = VendedorForm(request.POST or None, instance=vendedor)
