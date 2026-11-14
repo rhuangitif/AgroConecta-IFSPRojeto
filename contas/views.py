@@ -6,8 +6,16 @@ from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .forms import CadastroForm, LoginForm, PerfilForm, UsuarioForm, VendedorForm
+from .forms import (
+	AnonimizarContaForm,
+	CadastroForm,
+	LoginForm,
+	PerfilForm,
+	UsuarioForm,
+	VendedorForm,
+)
 from .models import Perfil
+from .services import anonimizar_conta
 
 
 def cadastro(request):
@@ -21,6 +29,14 @@ def cadastro(request):
 		messages.success(request, 'Conta criada com sucesso.')
 		return redirect('contas:perfil')
 	return render(request, 'contas/cadastro.html', {'form': form})
+
+
+def termos_uso(request):
+	return render(request, 'contas/termos.html')
+
+
+def politica_privacidade(request):
+	return render(request, 'contas/privacidade.html')
 
 
 def login_view(request):
@@ -99,3 +115,18 @@ def editar_perfil(request):
 			'vendedor_form': vendedor_form,
 		},
 	)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def anonimizar_perfil(request):
+	form = AnonimizarContaForm(request.POST or None, user=request.user)
+	if request.method == 'POST' and form.is_valid():
+		anonimizar_conta(request.user)
+		logout(request)
+		messages.success(
+			request,
+			'Sua conta foi anonimizada e desativada. Os registros de pedidos foram preservados sem seus dados pessoais.',
+		)
+		return redirect('contas:login')
+	return render(request, 'contas/anonimizar.html', {'form': form})

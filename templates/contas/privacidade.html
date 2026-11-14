@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Política de Privacidade | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <article class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+            <p class="text-success fw-semibold mb-1">AgroConecta</p>
+            <h1 class="h2 mb-4">Política de Privacidade</h1>
+            <p>Esta página descreve, de forma resumida, os dados tratados pelo AgroConecta e as opções disponíveis para o titular. O responsável pela operação deve revisar e complementar estas informações antes do uso público.</p>
+            <h2 class="h5 mt-4">Dados tratados</h2>
+            <p>O cadastro pode incluir nome, e-mail, telefone, cidade e estado. Contas de fornecedores também podem incluir dados da empresa, CNPJ, endereço, descrição e logotipo. Pedidos podem conter endereço de entrega, cidade, estado, forma de pagamento selecionada e observações. O sistema registra a data e hora do aceite dos termos e da política.</p>
+            <h2 class="h5 mt-4">Finalidades</h2>
+            <p>Os dados são usados para criar e proteger contas, exibir perfis e produtos, manter o carrinho e registrar e acompanhar pedidos. A forma de pagamento é armazenada como dado do pedido; esta aplicação não recebe dados de cartão nem executa o processamento do pagamento.</p>
+            <h2 class="h5 mt-4">Compartilhamento e conservação</h2>
+            <p>Dados relacionados a um pedido podem ser acessados por quem participa da operação do pedido. Os registros transacionais podem ser conservados para manter o histórico e a integridade dos pedidos. A anonimização remove dados pessoais de identificação e entrega, desativa a conta e preserva o histórico sem associá-lo aos dados identificáveis do titular.</p>
+            <h2 class="h5 mt-4">Seus direitos e opções</h2>
+            <p>Você pode revisar e atualizar os dados do perfil enquanto a conta estiver ativa. Para anonimizar a conta, acesse <a href="{% url 'contas:perfil' %}">seu perfil</a> e escolha “Anonimizar minha conta”. A ação exige sua senha, desativa o acesso e não pode ser desfeita pela plataforma.</p>
+            <h2 class="h5 mt-4">Segurança e contato</h2>
+            <p>A plataforma deve adotar medidas técnicas e administrativas adequadas para proteger os dados. Para dúvidas ou solicitações sobre privacidade além das opções disponíveis na conta, procure o responsável pela operação do AgroConecta pelo canal de contato oficial do projeto.</p>
+        </div>
+    </article>
+</section>
+{% endblock %}

@@ -6,7 +6,11 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 
+from carrinho.models import Carrinho, ItemCarrinho
+from pedidos.models import HistoricoStatus, Pedido, PedidoFornecedor, PedidoItem
+from produtos.models import Categoria
 from .models import Perfil
 from .forms import CadastroForm
 from produtos.forms import ProdutoForm
@@ -33,6 +37,7 @@ class AutenticacaoTests(TestCase):
 			{
 				'username': 'agricultor@teste.local',
 				'first_name': 'Agricultor',
+				'aceite_termos': 'on',
 				'tipo': Perfil.Tipo.AGRICULTOR,
 				'telefone': '82999999999',
 				'cidade': 'Maceio',
@@ -47,6 +52,7 @@ class AutenticacaoTests(TestCase):
 		user = User.objects.get(username='agricultor@teste.local')
 		self.assertEqual(user.perfil.tipo, Perfil.Tipo.AGRICULTOR)
 		self.assertTrue(user.check_password('AgroConecta#2026'))
+		self.assertIsNotNone(user.perfil.aceite_termos_em)
 
 	def test_cadastro_de_fornecedor_valida_cnpj_e_cria_fornecedor(self):
 		response = self.client.post(
@@ -54,6 +60,7 @@ class AutenticacaoTests(TestCase):
 			{
 				'username': 'fornecedor@teste.local',
 				'first_name': 'Fornecedor',
+				'aceite_termos': 'on',
 				'tipo': Perfil.Tipo.FORNECEDOR,
 				'telefone': '82999999999',
 				'cidade': 'Maceió',
@@ -77,6 +84,7 @@ class AutenticacaoTests(TestCase):
 			{
 				'username': 'cnpj-invalido@teste.local',
 				'first_name': 'Fornecedor',
+				'aceite_termos': 'on',
 				'tipo': Perfil.Tipo.FORNECEDOR,
 				'telefone': '82999999999',
 				'cidade': 'Maceió',
@@ -93,6 +101,180 @@ class AutenticacaoTests(TestCase):
 		self.assertContains(response, 'id_cnpj_errors')
 		self.assertContains(response, 'is-invalid')
 		self.assertFalse(User.objects.filter(email='cnpj-invalido@teste.local').exists())
+
+	def test_cadastro_exige_aceite_de_termos_e_privacidade(self):
+		response = self.client.post(
+			reverse('contas:cadastro'),
+			{
+				'username': 'sem-aceite@teste.local',
+				'first_name': 'Sem aceite',
+				'tipo': Perfil.Tipo.AGRICULTOR,
+				'telefone': '82999999999',
+				'cidade': 'Maceió',
+				'estado': 'AL',
+				'password1': 'AgroConecta#2026',
+				'password2': 'AgroConecta#2026',
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'id_aceite_termos_errors')
+		self.assertFalse(User.objects.filter(username='sem-aceite@teste.local').exists())
+
+	def test_paginas_de_termos_e_privacidade_sao_publicas(self):
+		for nome_url, conteudo in (
+			('contas:termos', 'Termos de Uso'),
+			('contas:privacidade', 'Política de Privacidade'),
+		):
+			with self.subTest(nome_url=nome_url):
+				response = self.client.get(reverse(nome_url))
+
+				self.assertEqual(response.status_code, 200)
+				self.assertContains(response, conteudo)
+
+	def test_anonimizacao_requer_senha_correta_e_confirmacao(self):
+		user = User.objects.create_user(
+			username='anonimizar@teste.local',
+			email='anonimizar@teste.local',
+			password='SenhaCorreta#2026',
+		)
+		Perfil.objects.create(usuario=user, telefone='82999999999')
+		self.client.force_login(user)
+
+		response = self.client.post(
+			reverse('contas:anonimizar'),
+			{'senha': 'errada', 'confirmar': 'on'},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'A senha informada está incorreta.')
+		user.refresh_from_db()
+		self.assertTrue(user.is_active)
+		self.assertEqual(user.perfil.telefone, '82999999999')
+
+	def test_anonimizacao_exige_confirmacao_explicita(self):
+		user = User.objects.create_user(
+			username='sem-confirmacao@teste.local',
+			password='SenhaCorreta#2026',
+		)
+		Perfil.objects.create(usuario=user)
+		self.client.force_login(user)
+
+		response = self.client.post(
+			reverse('contas:anonimizar'),
+			{'senha': 'SenhaCorreta#2026'},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		user.refresh_from_db()
+		self.assertTrue(user.is_active)
+		self.assertIsNone(user.perfil.anonimizado_em)
+
+	def test_anonimizacao_preserva_pedidos_e_remove_dados_pessoais(self):
+		user = User.objects.create_user(
+			username='vendedor@teste.local',
+			email='vendedor@teste.local',
+			first_name='Nome Pessoal',
+			last_name='Sobrenome Pessoal',
+			password='SenhaCorreta#2026',
+		)
+		aceite_em = timezone.now()
+		Perfil.objects.create(
+			usuario=user,
+			telefone='82999999999',
+			cidade='Maceió',
+			estado='AL',
+			aceite_termos_em=aceite_em,
+		)
+		vendedor = Vendedor.objects.create(
+			usuario=user,
+			empresa='Empresa Identificável',
+			cnpj='12345678000195',
+			endereco='Rua Particular',
+			cidade_sede='Maceió',
+			uf_sede='AL',
+			descricao='Descrição identificável',
+		)
+		categoria = Categoria.objects.create(nome='Produtos anonimizacao')
+		produto = Produto.objects.create(
+			nome='Produto de histórico',
+			descricao='Descrição do produto',
+			categoria=categoria,
+			fornecedor=vendedor,
+			preco='12.50',
+			estoque=5,
+		)
+		pedido = Pedido.objects.create(
+			usuario=user,
+			endereco_entrega='Rua da Casa, 123',
+			cidade_entrega='Maceió',
+			estado_entrega='AL',
+			observacoes='Deixar com a pessoa identificável',
+		)
+		pedido_fornecedor = PedidoFornecedor.objects.create(
+			pedido=pedido,
+			fornecedor=vendedor,
+		)
+		PedidoItem.objects.create(
+			pedido_fornecedor=pedido_fornecedor,
+			produto=produto,
+			quantidade=1,
+			preco_unitario='12.50',
+		)
+		evento = HistoricoStatus.objects.create(
+			pedido_fornecedor=pedido_fornecedor,
+			status_anterior=PedidoFornecedor.Status.PENDENTE,
+			status_novo=PedidoFornecedor.Status.CONFIRMADO,
+			autor=user,
+		)
+		carrinho = Carrinho.objects.create(usuario=user)
+		ItemCarrinho.objects.create(
+			carrinho=carrinho,
+			produto=produto,
+			quantidade=1,
+		)
+		self.client.force_login(user)
+
+		response = self.client.post(
+			reverse('contas:anonimizar'),
+			{'senha': 'SenhaCorreta#2026', 'confirmar': 'on'},
+		)
+
+		self.assertRedirects(response, reverse('contas:login'))
+		user.refresh_from_db()
+		pedido.refresh_from_db()
+		pedido_fornecedor.refresh_from_db()
+		vendedor.refresh_from_db()
+		produto.refresh_from_db()
+		evento.refresh_from_db()
+		perfil = Perfil.objects.get(usuario=user)
+		self.assertFalse(user.is_active)
+		self.assertEqual(user.first_name, '')
+		self.assertEqual(user.last_name, '')
+		self.assertNotEqual(user.email, 'vendedor@teste.local')
+		self.assertFalse(user.has_usable_password())
+		self.assertEqual(perfil.telefone, '')
+		self.assertEqual(perfil.cidade, '')
+		self.assertEqual(perfil.estado, '')
+		self.assertIsNotNone(perfil.anonimizado_em)
+		self.assertEqual(perfil.aceite_termos_em, aceite_em)
+		self.assertEqual(pedido.endereco_entrega, '')
+		self.assertEqual(pedido.cidade_entrega, '')
+		self.assertEqual(pedido.estado_entrega, '')
+		self.assertEqual(pedido.observacoes, '')
+		self.assertEqual(pedido.usuario_id, user.pk)
+		self.assertIsNone(evento.autor)
+		self.assertEqual(vendedor.cnpj, None)
+		self.assertFalse(vendedor.ativo)
+		self.assertEqual(vendedor.empresa, f'Fornecedor anonimizado {vendedor.pk}')
+		self.assertEqual(vendedor.endereco, '')
+		self.assertEqual(vendedor.cidade_sede, '')
+		self.assertEqual(vendedor.uf_sede, '')
+		self.assertFalse(produto.ativo)
+		self.assertEqual(produto.imagem.name, '')
+		self.assertTrue(Pedido.objects.filter(pk=pedido.pk).exists())
+		self.assertTrue(PedidoItem.objects.filter(pedido_fornecedor=pedido_fornecedor).exists())
+		self.assertFalse(Carrinho.objects.filter(usuario=user).exists())
 
 	def test_login_com_senha_incorreta_exibe_erro_no_campo(self):
 		User.objects.create_user(

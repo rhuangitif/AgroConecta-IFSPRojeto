@@ -9,7 +9,10 @@
             <h1 class="h2 mb-1">Olá, {{ user.first_name|default:user.username }}</h1>
             <p class="text-muted mb-0">Gerencie seus dados no AgroConecta.</p>
         </div>
-        <a class="btn btn-agro" href="{% url 'contas:editar_perfil' %}"><i class="fa-solid fa-pen-to-square me-2"></i>Editar perfil</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-agro" href="{% url 'contas:editar_perfil' %}"><i class="fa-solid fa-pen-to-square me-2"></i>Editar perfil</a>
+            <a class="btn btn-outline-danger" href="{% url 'contas:anonimizar' %}">Anonimizar minha conta</a>
+        </div>
     </div>
     <div class="row g-4">
         <div class="col-lg-7">
@@ -22,6 +25,7 @@
                         <dt class="col-sm-4 text-muted">Tipo</dt><dd class="col-sm-8">{{ perfil_usuario.get_tipo_display|default:'Administrador' }}</dd>
                         <dt class="col-sm-4 text-muted">Telefone</dt><dd class="col-sm-8">{{ perfil_usuario.telefone|default:'Não informado' }}</dd>
                         <dt class="col-sm-4 text-muted">Localização</dt><dd class="col-sm-8">{% if perfil_usuario %}{{ perfil_usuario.cidade }} - {{ perfil_usuario.estado }}{% else %}Não informada{% endif %}</dd>
+                        {% if perfil_usuario.aceite_termos_em %}<dt class="col-sm-4 text-muted">Termos aceitos em</dt><dd class="col-sm-8">{{ perfil_usuario.aceite_termos_em|date:'d/m/Y H:i' }}</dd>{% endif %}
                     </dl>
                 </div>
             </div>

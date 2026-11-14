@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Anonimizar conta | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    <a class="text-decoration-none" href="{% url 'contas:perfil' %}"><i class="fa-solid fa-arrow-left me-2"></i>Voltar ao perfil</a>
+                    <h1 class="h3 mt-3">Anonimizar minha conta</h1>
+                    <p>Esta ação desativa sua conta e remove os dados pessoais do perfil, dos dados da empresa e dos endereços de entrega. Pedidos e itens serão preservados para manter o histórico, sem seus dados pessoais identificáveis.</p>
+                    <p class="text-danger fw-semibold">A anonimização é permanente e não pode ser desfeita. Você não poderá entrar novamente nesta conta.</p>
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                {% if field.field.widget.input_type == 'checkbox' %}
+                                    <div class="form-check">{{ field }}{{ field.label_tag }}</div>
+                                {% else %}
+                                    {{ field.label_tag }}{{ field }}
+                                {% endif %}
+                                {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block" role="alert">{{ error }}</div>{% endfor %}
+                            </div>
+                        {% endfor %}
+                        <button class="btn btn-danger" type="submit">Confirmar anonimização</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

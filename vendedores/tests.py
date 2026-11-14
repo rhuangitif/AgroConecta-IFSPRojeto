@@ -32,6 +32,28 @@ class VendedorIntegridadeTests(TestCase):
 				cnpj='12345678000000',
 			)
 
+	def test_cnpj_e_obrigatorio_para_fornecedor_ativo(self):
+		with self.assertRaises(ValidationError):
+			Vendedor.objects.create(
+				usuario=self.criar_usuario('sem-cnpj@teste.local'),
+				empresa='Fornecedor',
+				cnpj=None,
+			)
+
+	def test_fornecedores_anonimizados_podem_ter_cnpj_nulo(self):
+		for numero in (1, 2):
+			Vendedor.objects.create(
+				usuario=self.criar_usuario(f'anonimo{numero}@teste.local'),
+				empresa=f'Fornecedor anonimizado {numero}',
+				cnpj=None,
+				ativo=False,
+			)
+
+		self.assertEqual(
+			Vendedor.objects.filter(cnpj__isnull=True).count(),
+			2,
+		)
+
 	def test_cnpj_duplicado_com_mascara_e_rejeitado_no_formulario(self):
 		Vendedor.objects.create(
 			usuario=self.criar_usuario('existente@teste.local'),

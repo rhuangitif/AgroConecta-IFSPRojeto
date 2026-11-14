@@ -13,7 +13,7 @@ class Vendedor(models.Model):
 		related_name='vendedor',
 	)
 	empresa = models.CharField(max_length=150)
-	cnpj = models.CharField(max_length=14, unique=True)
+	cnpj = models.CharField(max_length=14, unique=True, null=True, blank=True)
 	logo = models.ImageField(upload_to='vendedores/', blank=True, null=True)
 	endereco = models.CharField(max_length=255, blank=True)
 	# These fields describe the company's registered address, not the user's location.
@@ -36,6 +36,8 @@ class Vendedor(models.Model):
 	def clean(self):
 		super().clean()
 		if not self.cnpj:
+			if self.ativo:
+				raise ValidationError({'cnpj': 'Informe o CNPJ do fornecedor.'})
 			return
 		try:
 			cnpj = normalizar_cnpj(self.cnpj)
@@ -54,15 +56,17 @@ class Vendedor(models.Model):
 
 	def save(self, *args, **kwargs):
 		cnpj = normalizar_cnpj(self.cnpj)
+		if not cnpj and self.ativo:
+			raise ValidationError({'cnpj': 'Informe o CNPJ do fornecedor.'})
 		cnpj_anterior = None
 		if self.pk:
 			cnpj_anterior = type(self).objects.filter(pk=self.pk).values_list(
 				'cnpj',
 				flat=True,
 			).first()
-		if cnpj_anterior != cnpj:
+		if cnpj and cnpj_anterior != cnpj:
 			validar_cnpj(cnpj)
-		self.cnpj = cnpj
+		self.cnpj = cnpj or None
 		super().save(*args, **kwargs)
 
 	def __str__(self):

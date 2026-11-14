@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, UserChangeForm, UserCreationForm
 from django.db import transaction
+from django.utils import timezone
 
 from contas.choices import UnidadeFederativa
 from vendedores.models import Vendedor
@@ -49,6 +50,10 @@ class BootstrapFieldsMixin:
 class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
     username = forms.EmailField(label='E-mail')
     first_name = forms.CharField(label='Nome', max_length=150)
+    aceite_termos = forms.BooleanField(
+        label='Li e aceito os Termos de Uso e a Política de Privacidade',
+        required=True,
+    )
     tipo = forms.ChoiceField(label='Tipo de conta', choices=Perfil.Tipo.choices)
     telefone = forms.CharField(label='Telefone', max_length=20)
     cidade = forms.CharField(label='Cidade', max_length=100)
@@ -63,6 +68,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
         fields = (
             'username',
             'first_name',
+            'aceite_termos',
             'tipo',
             'telefone',
             'cidade',
@@ -133,6 +139,7 @@ class CadastroForm(BootstrapFieldsMixin, UserCreationForm):
             telefone=self.cleaned_data['telefone'],
             cidade=self.cleaned_data['cidade'],
             estado=self.cleaned_data['estado'],
+            aceite_termos_em=timezone.now(),
         )
         return user
 
@@ -200,6 +207,10 @@ class PerfilForm(BootstrapFieldsMixin, forms.ModelForm):
 class VendedorForm(BootstrapFieldsMixin, forms.ModelForm):
     cnpj = forms.CharField(label='CNPJ', max_length=18)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cnpj'].required = self.instance.ativo
+
     class Meta:
         model = Vendedor
         fields = (
@@ -228,8 +239,32 @@ class VendedorForm(BootstrapFieldsMixin, forms.ModelForm):
     def clean_cnpj(self):
         cnpj = normalizar_cnpj(self.cleaned_data['cnpj'])
         cnpj_anterior = self.instance.cnpj if self.instance.pk else None
+        if not cnpj and not self.instance.ativo:
+            return ''
         if cnpj != cnpj_anterior:
             validar_cnpj(cnpj)
             if Vendedor.objects.filter(cnpj=cnpj).exclude(pk=self.instance.pk).exists():
                 raise forms.ValidationError('Já existe um fornecedor com este CNPJ.')
         return cnpj
+
+
+class AnonimizarContaForm(BootstrapFieldsMixin, forms.Form):
+    senha = forms.CharField(
+        label='Senha atual',
+        strip=False,
+        widget=forms.PasswordInput,
+    )
+    confirmar = forms.BooleanField(
+        label='Entendo que minha conta será desativada e meus dados pessoais removidos.',
+        required=True,
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_senha(self):
+        senha = self.cleaned_data['senha']
+        if not self.user.check_password(senha):
+            raise forms.ValidationError('A senha informada está incorreta.')
+        return senha

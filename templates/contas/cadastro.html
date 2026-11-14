@@ -14,12 +14,19 @@
                 {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
                 <div class="row g-3">
                     {% for field in form %}
-                        <div class="col-12 {% if field.name == 'first_name' or field.name == 'tipo' or field.name == 'estado' %}col-md-6{% endif %} cadastro-field cadastro-{{ field.name }}">
-                            {{ field.label_tag }}
-                            {{ field }}
-                            {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block mt-1" role="alert">{{ error }}</div>{% endfor %}
-                        </div>
+                        {% if field.name != 'aceite_termos' %}
+                            <div class="col-12 {% if field.name == 'first_name' or field.name == 'tipo' or field.name == 'estado' %}col-md-6{% endif %} cadastro-field cadastro-{{ field.name }}">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}<div id="{{ field.auto_id }}_errors" class="invalid-feedback d-block mt-1" role="alert">{{ error }}</div>{% endfor %}
+                            </div>
+                        {% endif %}
                     {% endfor %}
+                </div>
+                <div class="form-check mt-3 cadastro-field cadastro-aceite_termos">
+                    {{ form.aceite_termos }}{{ form.aceite_termos.label_tag }}
+                    <p class="form-text mb-0">Leia os <a href="{% url 'contas:termos' %}" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="{% url 'contas:privacidade' %}" target="_blank" rel="noopener">Política de Privacidade</a>.</p>
+                    {% for error in form.aceite_termos.errors %}<div id="{{ form.aceite_termos.auto_id }}_errors" class="invalid-feedback d-block mt-1" role="alert">{{ error }}</div>{% endfor %}
                 </div>
                 <button class="btn btn-agro w-100 mt-4" type="submit"><i class="fa-solid fa-user-plus me-2"></i>Criar conta</button>
             </form>

@@ -21,6 +21,8 @@ class Perfil(models.Model):
 		choices=UnidadeFederativa.choices,
 		blank=True,
 	)
+	aceite_termos_em = models.DateTimeField(null=True, blank=True)
+	anonimizado_em = models.DateTimeField(null=True, blank=True)
 	criado_em = models.DateTimeField(auto_now_add=True)
 	atualizado_em = models.DateTimeField(auto_now=True)
 

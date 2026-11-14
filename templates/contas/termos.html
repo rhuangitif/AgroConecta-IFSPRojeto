@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Termos de Uso | AgroConecta{% endblock %}
+{% block content %}
+<section class="container py-5">
+    <article class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+            <p class="text-success fw-semibold mb-1">AgroConecta</p>
+            <h1 class="h2 mb-4">Termos de Uso</h1>
+            <p>Ao criar uma conta, você declara que leu e aceita estes termos e a <a href="{% url 'contas:privacidade' %}">Política de Privacidade</a>.</p>
+            <h2 class="h5 mt-4">Uso da plataforma</h2>
+            <p>O AgroConecta conecta agricultores e fornecedores para consulta de produtos, gerenciamento de carrinho e registro e acompanhamento de pedidos. Você deve fornecer informações corretas, proteger suas credenciais e usar a plataforma de forma lícita.</p>
+            <h2 class="h5 mt-4">Contas e pedidos</h2>
+            <p>O usuário é responsável pelas ações realizadas em sua conta. Informações de entrega e observações podem ser registradas para viabilizar pedidos. A forma de pagamento selecionada no sistema é armazenada como informação do pedido; a plataforma não processa pagamentos por meio desta seleção.</p>
+            <h2 class="h5 mt-4">Produtos e fornecedores</h2>
+            <p>As informações dos produtos são cadastradas pelos fornecedores. Disponibilidade, estoque e preços podem mudar. Os dados registrados em pedidos concluídos são mantidos como histórico, mesmo que um produto ou conta seja posteriormente desativado ou anonimizado.</p>
+            <h2 class="h5 mt-4">Encerramento da conta</h2>
+            <p>Você pode solicitar a anonimização da conta pela página de perfil. A conta será desativada e os dados pessoais removidos ou substituídos; registros de pedidos necessários para manter o histórico serão preservados sem os dados pessoais de identificação e entrega.</p>
+            <p class="small text-muted mt-4 mb-0">Estes termos devem ser revisados pelo responsável pela operação antes da disponibilização pública da plataforma.</p>
+        </div>
+    </article>
+</section>
+{% endblock %}
