@@ -13,7 +13,7 @@ from pedidos.models import Pedido, PedidoFornecedor, PedidoItem
 from vendedores.models import Vendedor
 
 from .forms import ProdutoForm
-from .models import Categoria, Produto
+from .models import Categoria, Produto, formatar_estoque
 
 User = get_user_model()
 
@@ -65,6 +65,20 @@ class CatalogoTests(TestCase):
 		self.assertContains(response, 'Semente de Milho')
 		self.assertNotContains(response, 'Fertilizante')
 
+	def test_catalogo_formata_estoque_sem_zeros_finais(self):
+		response = self.client.get(reverse('produtos:catalogo'))
+
+		self.assertContains(response, '10 unidades em estoque')
+		self.assertNotContains(response, '10.000 Unidade em estoque')
+
+	def test_detalhe_formata_estoque_sem_zeros_finais(self):
+		response = self.client.get(
+			reverse('produtos:detalhe', args=[self.produto.pk]),
+		)
+
+		self.assertContains(response, 'Estoque:</strong> 10 unidades')
+		self.assertNotContains(response, '10.000 Unidade')
+
 	def test_fornecedor_nao_edita_produto_de_outro(self):
 		self.client.login(username=self.usuario_b.username, password='Senha#2026')
 
@@ -85,6 +99,17 @@ class CatalogoTests(TestCase):
 
 		self.assertTrue(form.is_valid(), form.errors)
 		self.assertEqual(form.cleaned_data['estoque'], Decimal('1.250'))
+
+	def test_formatar_estoque_remove_decimais_inuteis_e_usa_plural(self):
+		self.produto.estoque = Decimal('28.000')
+		self.assertEqual(formatar_estoque(self.produto), '28 unidades')
+
+		self.produto.unidade_medida = 'kg'
+		self.produto.estoque = Decimal('2.500')
+		self.assertEqual(formatar_estoque(self.produto), '2,5 kg')
+
+		self.produto.estoque = Decimal('1.000')
+		self.assertEqual(formatar_estoque(self.produto), '1 quilograma')
 
 	def test_estoque_fracionario_e_rejeitado_para_unidade_inteira(self):
 		form = ProdutoForm(data={

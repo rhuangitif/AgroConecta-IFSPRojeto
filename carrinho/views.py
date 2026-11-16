@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from contas.decorators import agricultor_required
 from pedidos.forms import PedidoForm
-from produtos.models import Produto, validar_quantidade_unidade
+from produtos.models import Produto, formatar_estoque, validar_quantidade_unidade
 
 from .forms import QuantidadeForm
 from .models import Carrinho, ItemCarrinho
@@ -53,7 +53,10 @@ def adicionar(request, produto_id):
 			return redirect('produtos:detalhe', produto_id)
 		quantidade = form.cleaned_data['quantidade']
 		if produto.estoque < quantidade:
-			messages.error(request, 'A quantidade solicitada excede o estoque disponível.')
+			messages.error(
+				request,
+				f'O estoque disponível de {produto.nome} é {formatar_estoque(produto)}.',
+			)
 			return redirect('produtos:detalhe', produto_id)
 		carrinho, _ = Carrinho.objects.get_or_create(usuario=request.user)
 		item, criado = ItemCarrinho.objects.select_for_update().get_or_create(
@@ -69,7 +72,10 @@ def adicionar(request, produto_id):
 				messages.error(request, erro.messages[0])
 				return redirect('produtos:detalhe', produto_id)
 			if nova_quantidade > produto.estoque:
-				messages.error(request, 'A quantidade total no carrinho excede o estoque disponível.')
+				messages.error(
+					request,
+					f'O estoque disponível de {produto.nome} é {formatar_estoque(produto)}.',
+				)
 				return redirect('produtos:detalhe', produto_id)
 			item.quantidade = nova_quantidade
 			try:
@@ -98,7 +104,10 @@ def atualizar(request, item_id):
 			return redirect('carrinho:ver')
 		quantidade = form.cleaned_data['quantidade']
 		if quantidade > produto.estoque:
-			messages.error(request, f'O estoque disponível é {produto.estoque}.')
+			messages.error(
+				request,
+				f'O estoque disponível de {produto.nome} é {formatar_estoque(produto)}.',
+			)
 			return redirect('carrinho:ver')
 		item.quantidade = quantidade
 		try:

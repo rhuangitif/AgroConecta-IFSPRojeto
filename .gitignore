@@ -13,6 +13,9 @@ db.sqlite3
 media/
 staticfiles/
 
+loadtest/users.csv
+loadtest/resultados_*.csv
+
 .vscode/
 .idea/
 

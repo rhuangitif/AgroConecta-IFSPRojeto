@@ -93,3 +93,24 @@ class CarrinhoTests(TestCase):
 		self.produto.preco = Decimal('15.00')
 		self.produto.save(update_fields=['preco'])
 		self.assertEqual(carrinho.total, Decimal('30.00'))
+
+	def test_erro_de_estoque_exibe_quantidade_formatada_e_produto(self):
+		self.client.post(
+			reverse('carrinho:adicionar', args=[self.produto.pk]),
+			{'quantidade': 3},
+		)
+		carrinho = Carrinho.objects.get(usuario=self.usuario)
+		item = carrinho.itens.get(produto=self.produto)
+		self.produto.estoque = Decimal('1.000')
+		self.produto.save(update_fields=['estoque'])
+
+		response = self.client.post(
+			reverse('carrinho:atualizar', args=[item.pk]),
+			{'quantidade': 2},
+			follow=True,
+		)
+
+		self.assertContains(
+			response,
+			'O estoque disponível de Produto é 1 unidade.',
+		)

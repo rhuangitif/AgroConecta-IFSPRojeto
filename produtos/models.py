@@ -26,6 +26,30 @@ UNIDADES_INTEIRAS = {
 	UnidadeMedida.CAIXA,
 }
 
+UNIDADE_PLURAL = {
+	'un': 'unidades',
+	'kg': 'kg',
+	'g': 'g',
+	'saco': 'sacos',
+	'litro': 'litros',
+	'ml': 'ml',
+	'tonelada': 'toneladas',
+	'caixa': 'caixas',
+}
+
+
+def formatar_estoque(produto):
+	quantidade = produto.estoque.normalize()
+	texto = format(quantidade, 'f').replace('.', ',')
+	if quantidade == 1:
+		unidade = produto.get_unidade_medida_display().lower()
+	else:
+		unidade = UNIDADE_PLURAL.get(
+			produto.unidade_medida,
+			produto.unidade_medida,
+		)
+	return f'{texto} {unidade}'
+
 
 def validar_quantidade_unidade(quantidade, unidade, permitir_zero=False):
 	if quantidade is None:

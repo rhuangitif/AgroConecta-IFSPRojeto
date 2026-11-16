@@ -3,7 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.shortcuts import render
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from carrinho.models import Carrinho
 from contas.decorators import agricultor_required, fornecedor_required
@@ -51,6 +51,10 @@ def fornecedor_dashboard(request):
 		pedido_fornecedor__fornecedor=fornecedor,
 		pedido_fornecedor__status__in=STATUS_COM_VENDA,
 	).aggregate(total=Sum('subtotal'))['total'] or Decimal('0.00')
+	total_vendido = Decimal(str(total_vendido)).quantize(
+		Decimal('0.01'),
+		rounding=ROUND_HALF_UP,
+	)
 	status_counts = {
 		status: total
 		for status, total in pedidos.values('status').annotate(total=Count('id')).values_list('status', 'total')
@@ -76,9 +80,11 @@ def fornecedor_dashboard(request):
 
 @staff_member_required(login_url='/login/')
 def administrador_dashboard(request):
-	vendas = PedidoItem.objects.filter(
-		pedido_fornecedor__status__in=STATUS_COM_VENDA,
-	).aggregate(total=Sum('subtotal'))['total'] or 0
+	vendas = Pedido.objects.aggregate(total=Sum('valor_total'))['total'] or Decimal('0')
+	vendas = Decimal(str(vendas)).quantize(
+		Decimal('0.01'),
+		rounding=ROUND_HALF_UP,
+	)
 	return render(
 		request,
 		'dashboard/administrador.html',
